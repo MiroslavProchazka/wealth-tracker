@@ -76,7 +76,6 @@ test.describe("Crypto (/crypto)", () => {
 
   test("zobrazí sekci Price Alerts nebo možnost nastavit alert", async ({ page }) => {
     // Alerts jsou část stránky — hledáme text nebo tlačítko
-    const alertSection = page.getByText(/alert|upozornění/i).first();
     // Je to volitelná sekce — jen ověříme že stránka nenadhodí chybu
     await expect(page).toHaveURL("/crypto");
   });
