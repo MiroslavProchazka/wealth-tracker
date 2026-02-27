@@ -1,5 +1,8 @@
 "use client";
 
+// Evolu requires browser APIs (WASM, IndexedDB) — skip static generation entirely
+export const dynamic = "force-dynamic";
+
 import { use, useEffect, useState } from "react";
 import * as bip39 from "bip39";
 import * as Evolu from "@evolu/common";
