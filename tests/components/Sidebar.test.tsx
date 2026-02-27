@@ -20,10 +20,10 @@ describe("Sidebar", () => {
       expect(screen.getByText("Personal Finance")).toBeInTheDocument();
     });
 
-    it("zobrazí footer 'Synced via Evolu'", () => {
+    it("zobrazí footer se statusem synchronizace", () => {
       mockUsePathname.mockReturnValue("/");
       render(<Sidebar />);
-      expect(screen.getByText(/Synced via Evolu/)).toBeInTheDocument();
+      expect(screen.getByText(/Synced/)).toBeInTheDocument();
     });
   });
 
@@ -92,11 +92,11 @@ describe("Sidebar", () => {
       expect(cryptoLink).toHaveStyle({ fontWeight: 400 });
     });
 
-    it("aktivní odkaz má modré pozadí (rgba)", () => {
+    it("aktivní odkaz má zvýrazněné pozadí", () => {
       mockUsePathname.mockReturnValue("/stocks");
       render(<Sidebar />);
       const stocksLink = screen.getByRole("link", { name: /Stocks/ });
-      expect(stocksLink).toHaveStyle({ background: "rgba(59,130,246,0.15)" });
+      expect(stocksLink).toHaveStyle({ background: "var(--surface-2)" });
     });
 
     it("neaktivní odkaz má transparentní pozadí", () => {
@@ -112,14 +112,19 @@ describe("Sidebar", () => {
       mockUsePathname.mockReturnValue("/");
     });
 
-    it("zobrazí Bitcoin ikonu pro Crypto", () => {
+    it("každý nav item má SVG ikonu", () => {
       render(<Sidebar />);
-      expect(screen.getByText("₿")).toBeInTheDocument();
+      const svgs = document.querySelectorAll("nav svg");
+      expect(svgs.length).toBe(10);
     });
 
-    it("zobrazí ikonu domu pro Property", () => {
+    it("SVG ikony mají správné rozměry (16×16)", () => {
       render(<Sidebar />);
-      expect(screen.getByText("🏠")).toBeInTheDocument();
+      const svgs = document.querySelectorAll("nav svg");
+      svgs.forEach((svg) => {
+        expect(svg).toHaveAttribute("width", "16");
+        expect(svg).toHaveAttribute("height", "16");
+      });
     });
   });
 });
