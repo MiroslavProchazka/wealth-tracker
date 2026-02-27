@@ -201,7 +201,7 @@ label {
   margin-bottom: 0.4rem;
 }
 
-input,
+input:not([type="checkbox"]):not([type="radio"]),
 select,
 textarea {
   width: 100%;
@@ -216,6 +216,13 @@ textarea {
   transition: border-color 0.15s, box-shadow 0.15s;
   -webkit-appearance: none;
   appearance: none;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  width: auto;
+  cursor: pointer;
+  accent-color: var(--accent);
 }
 
 input:focus,
