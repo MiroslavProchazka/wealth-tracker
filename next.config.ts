@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Run yahoo-finance2 only on the server (Node.js), skip webpack bundling
+  serverExternalPackages: ["yahoo-finance2"],
   transpilePackages: [
     "@evolu/common",
     "@evolu/react",
