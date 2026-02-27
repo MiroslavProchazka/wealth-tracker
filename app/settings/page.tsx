@@ -1,15 +1,18 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import * as bip39 from "bip39";
 import * as Evolu from "@evolu/common";
 import { getRelayUrl, setRelayUrl, useEvolu } from "@/lib/evolu";
 
-// Inner component — uses use(evolu.appOwner) which requires Suspense above
+// Inner component — loads appOwner async to avoid SSR suspend (use() hangs in Node.js)
 function SettingsContent() {
   const evolu = useEvolu();
-  const owner = use(evolu.appOwner);
-  const mnemonic = owner.mnemonic ?? "";
+  const [mnemonic, setMnemonic] = useState("");
+
+  useEffect(() => {
+    evolu.appOwner.then((owner) => setMnemonic(owner.mnemonic ?? ""));
+  }, [evolu]);
 
   const [copied, setCopied] = useState(false);
   const [showRestore, setShowRestore] = useState(false);

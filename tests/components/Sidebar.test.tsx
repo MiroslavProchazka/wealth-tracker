@@ -51,7 +51,7 @@ describe("Sidebar", () => {
       { label: "Account", href: "/settings", exact: true },
     ];
 
-    it.each(navItems)("$label má href '$href'", ({ label, href }) => {
+    it.each(navItems)("$label má href '$href'", ({ href }) => {
       render(<Sidebar />);
       // Hledáme přes href — vyhne se ambiguitě "Account" vs "Bank Accounts"
       const links = screen.getAllByRole("link");

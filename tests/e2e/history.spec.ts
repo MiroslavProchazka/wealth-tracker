@@ -66,7 +66,6 @@ test.describe("History (/history)", () => {
     await waitForApp(page);
 
     // Prázdný stav nebo placeholder text
-    const emptyState = page.getByText(/no snapshots|no data|žádná data|snapshot/i).first();
     // Stránka se načte — a to je dostačující
     await expect(page).toHaveURL("/history");
   });

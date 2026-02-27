@@ -82,6 +82,7 @@ export default function GoalsPage() {
             const target = goal.targetAmount as number;
             const progress = netWorth > 0 ? Math.min(100, (netWorth / target) * 100) : 0;
             const deadlineStr = goal.deadline ? String(goal.deadline) : null;
+            // eslint-disable-next-line react-hooks/purity
             const daysLeft = deadlineStr ? Math.ceil((new Date(deadlineStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
             const reached = netWorth >= target;
             return (

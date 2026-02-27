@@ -26,7 +26,7 @@ export async function GET(req: Request) {
     });
 
     // Fetch FX rate history for conversion if needed
-    let fxMap: Record<string, number> = {};
+    const fxMap: Record<string, number> = {};
     if (currency !== "usd") {
       const fxTicker = currency === "czk" ? "USDCZK=X" : currency === "eur" ? "USDEUR=X" : "USDGBP=X";
       try {

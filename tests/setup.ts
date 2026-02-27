@@ -1,4 +1,5 @@
 import "@testing-library/jest-dom";
+import * as React from "react";
 import { vi } from "vitest";
 
 // Mock next/navigation (used in Sidebar)
@@ -7,12 +8,10 @@ vi.mock("next/navigation", () => ({
   useRouter: vi.fn(() => ({ push: vi.fn(), replace: vi.fn() })),
 }));
 
-// Mock next/link
+// Mock next/link — factory má přístup k importovanému React (Vitest lazy factory)
 vi.mock("next/link", () => ({
-  default: ({ href, children, ...props }: { href: string; children: React.ReactNode; [key: string]: unknown }) => {
-    const React = require("react");
-    return React.createElement("a", { href, ...props }, children);
-  },
+  default: ({ href, children, ...props }: { href: string; children: React.ReactNode; [key: string]: unknown }) =>
+    React.createElement("a", { href, ...props }, children),
 }));
 
 // Polyfill localStorage for jsdom
