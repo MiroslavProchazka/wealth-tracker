@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import * as Evolu from "@evolu/common";
 import { useQuery } from "@evolu/react";
 import { useEvolu } from "@/lib/evolu";
@@ -11,35 +11,110 @@ import Link from "next/link";
 export default function Dashboard() {
   const evolu = useEvolu();
 
-  const cryptoQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("cryptoHolding").select(["amount"]).where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue)), [evolu]);
-  const stockQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("stockHolding").select(["shares"]).where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue)), [evolu]);
-  const propertyQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("property").select(["estimatedValue", "remainingLoan"]).where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue)), [evolu]);
-  const receivableQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("receivable").select(["amount", "status"]).where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue)), [evolu]);
-  const savingsQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("savingsAccount").select(["balance"]).where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue)), [evolu]);
-  const bankQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("bankAccount").select(["balance"]).where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue)), [evolu]);
-  const snapshotQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("netWorthSnapshot").select(["netWorth"]).where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue).orderBy("snapshotDate", "desc").limit(2)), [evolu]);
+  // ── Queries ────────────────────────────────────────────────────────────────
+  const cryptoQ = useMemo(() => evolu.createQuery((db) => db
+    .selectFrom("cryptoHolding")
+    .select(["symbol", "amount"])
+    .where("isDeleted", "is not", Evolu.sqliteTrue)
+    .where("deleted", "is not", Evolu.sqliteTrue)
+  ), [evolu]);
+  const stockQ = useMemo(() => evolu.createQuery((db) => db
+    .selectFrom("stockHolding")
+    .select(["ticker", "shares", "currency"])
+    .where("isDeleted", "is not", Evolu.sqliteTrue)
+    .where("deleted", "is not", Evolu.sqliteTrue)
+  ), [evolu]);
+  const propertyQ = useMemo(() => evolu.createQuery((db) => db
+    .selectFrom("property")
+    .select(["estimatedValue", "remainingLoan"])
+    .where("isDeleted", "is not", Evolu.sqliteTrue)
+    .where("deleted", "is not", Evolu.sqliteTrue)
+  ), [evolu]);
+  const receivableQ = useMemo(() => evolu.createQuery((db) => db
+    .selectFrom("receivable")
+    .select(["amount", "status"])
+    .where("isDeleted", "is not", Evolu.sqliteTrue)
+    .where("deleted", "is not", Evolu.sqliteTrue)
+  ), [evolu]);
+  const savingsQ = useMemo(() => evolu.createQuery((db) => db
+    .selectFrom("savingsAccount")
+    .select(["balance"])
+    .where("isDeleted", "is not", Evolu.sqliteTrue)
+    .where("deleted", "is not", Evolu.sqliteTrue)
+  ), [evolu]);
+  const bankQ = useMemo(() => evolu.createQuery((db) => db
+    .selectFrom("bankAccount")
+    .select(["balance"])
+    .where("isDeleted", "is not", Evolu.sqliteTrue)
+    .where("deleted", "is not", Evolu.sqliteTrue)
+  ), [evolu]);
+  const snapshotQ = useMemo(() => evolu.createQuery((db) => db
+    .selectFrom("netWorthSnapshot")
+    .select(["netWorth"])
+    .where("isDeleted", "is not", Evolu.sqliteTrue)
+    .where("deleted", "is not", Evolu.sqliteTrue)
+    .orderBy("snapshotDate", "desc")
+    .limit(2)
+  ), [evolu]);
 
-  const cryptos = useQuery(cryptoQ);
-  const stocks = useQuery(stockQ);
-  const properties = useQuery(propertyQ);
+  const cryptos     = useQuery(cryptoQ);
+  const stocks      = useQuery(stockQ);
+  const properties  = useQuery(propertyQ);
   const receivables = useQuery(receivableQ);
-  const savings = useQuery(savingsQ);
-  const accounts = useQuery(bankQ);
-  const snapshots = useQuery(snapshotQ);
+  const savings     = useQuery(savingsQ);
+  const accounts    = useQuery(bankQ);
+  const snapshots   = useQuery(snapshotQ);
 
-  const cryptoValue = cryptos.reduce((s, c) => s + (c.amount as number), 0);
-  const stocksValue = stocks.reduce((s, st) => s + (st.shares as number), 0);
-  const propertyValue = properties.reduce((s, p) => s + (p.estimatedValue as number), 0);
-  const mortgageDebt = properties.reduce((s, p) => s + (((p.remainingLoan as number) ?? 0)), 0);
-  const receivablesValue = receivables.filter((r) => String(r.status) !== "PAID").reduce((s, r) => s + (r.amount as number), 0);
-  const savingsValue = savings.reduce((s, sv) => s + (sv.balance as number), 0);
-  const bankValue = accounts.reduce((s, a) => s + (a.balance as number), 0);
+  // ── Live prices ────────────────────────────────────────────────────────────
+  const [cryptoPrices, setCryptoPrices] = useState<Record<string, { czk: number }>>({});
+  const [stockPrices,  setStockPrices]  = useState<Record<string, { czk: number }>>({});
 
-  const totalAssets = cryptoValue + stocksValue + propertyValue + receivablesValue + savingsValue + bankValue;
+  useEffect(() => {
+    const symbols = cryptos.map((c) => (c.symbol as string).toUpperCase()).filter(Boolean);
+    if (symbols.length === 0) return;
+    fetch(`/api/crypto/prices?symbols=${encodeURIComponent(symbols.join(","))}`)
+      .then((r) => r.json())
+      .then((d) => { if (d.prices) setCryptoPrices(d.prices); })
+      .catch(() => {/* silently ignore – fall back to 0 */});
+  }, [cryptos.length]); // re-fetch when holdings change
+
+  useEffect(() => {
+    const tickers = stocks.map((s) => (s.ticker as string).toUpperCase()).filter(Boolean);
+    if (tickers.length === 0) return;
+    fetch(`/api/stocks/prices?tickers=${encodeURIComponent(tickers.join(","))}`)
+      .then((r) => r.json())
+      .then((d) => { if (d.prices) setStockPrices(d.prices); })
+      .catch(() => {/* silently ignore – fall back to 0 */});
+  }, [stocks.length]); // re-fetch when holdings change
+
+  // ── Computed values ────────────────────────────────────────────────────────
+  // Crypto: amount × live CZK price
+  const cryptoValue = cryptos.reduce((s, c) => {
+    const symbol = (c.symbol as string).toUpperCase();
+    const price  = cryptoPrices[symbol]?.czk ?? 0;
+    return s + (c.amount as number) * price;
+  }, 0);
+
+  // Stocks: shares × live CZK price (API already converts to CZK)
+  const stocksValue = stocks.reduce((s, st) => {
+    const ticker = (st.ticker as string).toUpperCase();
+    const price  = stockPrices[ticker]?.czk ?? 0;
+    return s + (st.shares as number) * price;
+  }, 0);
+
+  const propertyValue    = properties.reduce((s, p) => s + (p.estimatedValue as number), 0);
+  const mortgageDebt     = properties.reduce((s, p) => s + ((p.remainingLoan as number) ?? 0), 0);
+  const receivablesValue = receivables
+    .filter((r) => String(r.status) !== "PAID")
+    .reduce((s, r) => s + (r.amount as number), 0);
+  const savingsValue     = savings.reduce((s, sv) => s + (sv.balance as number), 0);
+  const bankValue        = accounts.reduce((s, a) => s + (a.balance as number), 0);
+
+  const totalAssets      = cryptoValue + stocksValue + propertyValue + receivablesValue + savingsValue + bankValue;
   const totalLiabilities = mortgageDebt;
-  const netWorth = totalAssets - totalLiabilities;
-  const prevSnapshot = snapshots[1];
-  const change = prevSnapshot ? netWorth - (prevSnapshot.netWorth as number) : 0;
+  const netWorth         = totalAssets - totalLiabilities;
+  const prevSnapshot     = snapshots[1];
+  const change           = prevSnapshot ? netWorth - (prevSnapshot.netWorth as number) : 0;
 
   const allocationItems = [
     { label: "Property",      value: propertyValue,    color: "#8b5cf6", href: "/property" },
