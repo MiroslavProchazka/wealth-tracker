@@ -38,6 +38,9 @@ export const Schema = {
     name: Evolu.NonEmptyTrimmedString100,
     shares: Evolu.NonNegativeNumber,
     currency: Evolu.NonEmptyTrimmedString100,
+    buyPrice: Evolu.nullOr(Evolu.NonNegativeNumber), // avg buy price in original currency
+    exchange: Evolu.nullOr(Evolu.TrimmedString100),  // e.g. NASDAQ, PSE, XETRA
+    sector: Evolu.nullOr(Evolu.TrimmedString100),    // e.g. Technology, Healthcare
     notes: Evolu.nullOr(Evolu.TrimmedString1000),
     deleted: Evolu.nullOr(Evolu.SqliteBoolean),
   },
