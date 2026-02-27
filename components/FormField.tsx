@@ -17,15 +17,28 @@ export default function FormField({
   required, step, min, options, rows,
 }: FormFieldProps) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "0" }}>
       <label htmlFor={name}>{label}</label>
       {options ? (
-        <select id={name} name={name} value={value} onChange={onChange} required={required}>
-          <option value="">Select…</option>
-          {options.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
+        <div style={{ position: "relative" }}>
+          <select id={name} name={name} value={value} onChange={onChange} required={required}
+            style={{ paddingRight: "2rem" }}>
+            <option value="">Select…</option>
+            {options.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+          {/* Custom chevron */}
+          <span style={{
+            position: "absolute",
+            right: "0.75rem",
+            top: "50%",
+            transform: "translateY(-50%)",
+            pointerEvents: "none",
+            color: "var(--text-3)",
+            fontSize: "0.6rem",
+          }}>▼</span>
+        </div>
       ) : type === "textarea" ? (
         <textarea
           id={name}
