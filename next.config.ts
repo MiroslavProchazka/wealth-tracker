@@ -1,15 +1,6 @@
 import type { NextConfig } from "next";
 
-// On Vercel, VERCEL_URL is set to the deployment URL (e.g. wealth-tracker-git-xyz.vercel.app).
-// Setting assetPrefix to an absolute URL ensures that webpack generates absolute URLs for
-// import.meta.url inside module workers, which is required for sqlite-wasm (Evolu) to
-// correctly resolve the WASM file path via `new URL('sqlite3.wasm', import.meta.url)`.
-const assetPrefix = process.env.VERCEL_URL
-  ? `https://${process.env.VERCEL_URL}`
-  : undefined;
-
 const nextConfig: NextConfig = {
-  assetPrefix,
   // Run yahoo-finance2 only on the server (Node.js), skip webpack bundling
   serverExternalPackages: ["yahoo-finance2"],
   transpilePackages: [
@@ -29,6 +20,23 @@ const nextConfig: NextConfig = {
         ],
       },
     ];
+  },
+  webpack(config, { isServer }) {
+    if (!isServer) {
+      // Fix WASM loading for Evolu's sqlite-wasm in Web Workers.
+      //
+      // Problem: webpack replaces `import.meta.url` at compile time with
+      // publicPath + moduleFilename. With Next.js default publicPath='/_next/'
+      // (relative), workers can't resolve WASM via `new URL('sqlite3.wasm',
+      // import.meta.url)` — there's no origin to resolve against.
+      //
+      // Fix: publicPath='auto' makes webpack inject runtime code that reads
+      // `self.location` (worker) or `document.currentScript.src` (main thread)
+      // to compute the absolute public path. This way import.meta.url is always
+      // an absolute URL and WASM loading works without any URL doubling.
+      config.output.publicPath = "auto";
+    }
+    return config;
   },
 };
 
