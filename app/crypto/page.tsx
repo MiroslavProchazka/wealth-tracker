@@ -88,6 +88,7 @@ const CURRENCY_KEY: Record<DisplayCurrency, keyof PriceData> = {
 };
 
 const REFRESH_INTERVAL_MS = 10 * 60 * 1000;
+const MIN_FETCH_INTERVAL_MS = 30 * 1000; // never fetch more often than 30s
 const ALERTS_STORAGE_KEY = "wealthTracker_cryptoAlerts";
 const emptyForm = { symbol: "", name: "", amount: "", buyPrice: "", notes: "" };
 const emptyAlert: { symbol: string; direction: "above" | "below"; threshold: string } = { symbol: "", direction: "above", threshold: "" };
@@ -126,6 +127,7 @@ export default function CryptoPage() {
   const [pricesLoading, setPricesLoading] = useState(false);
   const [pricesError, setPricesError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const lastFetchRef = useRef<number>(0); // timestamp of last successful fetch
 
   // Display currency toggle
   const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>("CZK");
@@ -156,11 +158,18 @@ export default function CryptoPage() {
         .orderBy("createdAt", "desc")
     ), [evolu]);
   const holdings = useQuery(query);
+  const holdingsRef = useRef(holdings); // stable ref so fetchPrices doesn't depend on holdings
+
+  // Keep ref in sync so fetchPrices can read latest holdings without depending on them
+  useEffect(() => { holdingsRef.current = holdings; }, [holdings]);
 
   // ── Fetch live prices ────────────────────────────────────────────────────────
-  const fetchPrices = useCallback(async () => {
-    if (holdings.length === 0) return;
-    const symbols = [...new Set(holdings.map((h) => h.symbol as string))].join(",");
+  const fetchPrices = useCallback(async (force = false) => {
+    const now = Date.now();
+    if (!force && now - lastFetchRef.current < MIN_FETCH_INTERVAL_MS) return; // cooldown
+    const current = holdingsRef.current;
+    if (current.length === 0) return;
+    const symbols = [...new Set(current.map((h) => h.symbol as string))].join(",");
     setPricesLoading(true);
     setPricesError(null);
     try {
@@ -170,6 +179,7 @@ export default function CryptoPage() {
       const newPrices: Record<string, PriceData> = data.prices ?? {};
       setPrices(newPrices);
       setLastUpdated(new Date());
+      lastFetchRef.current = Date.now();
 
       // Check alerts
       const currentAlerts = getAlerts();
@@ -184,15 +194,27 @@ export default function CryptoPage() {
     } finally {
       setPricesLoading(false);
     }
-  }, [holdings]);
+  }, []); // no dependency on holdings — reads from holdingsRef instead
 
+  // Fetch once on mount
   useEffect(() => { fetchPrices(); }, [fetchPrices]);
 
+  // Fetch when holdings first become non-empty (initial data load)
+  const prevHoldingsLenRef = useRef(0);
   useEffect(() => {
-    const id = setInterval(fetchPrices, REFRESH_INTERVAL_MS);
+    if (holdings.length > 0 && prevHoldingsLenRef.current === 0) {
+      fetchPrices(true); // force on first load
+    }
+    prevHoldingsLenRef.current = holdings.length;
+  }, [holdings.length, fetchPrices]);
+
+  // Auto-refresh every 10 min
+  useEffect(() => {
+    const id = setInterval(() => fetchPrices(true), REFRESH_INTERVAL_MS);
     return () => clearInterval(id);
   }, [fetchPrices]);
 
+  // Refresh on tab focus (with cooldown)
   useEffect(() => {
     const onFocus = () => fetchPrices();
     const onVisibility = () => { if (document.visibilityState === "visible") fetchPrices(); };
@@ -376,7 +398,7 @@ export default function CryptoPage() {
               >{c}</button>
             ))}
           </div>
-          <button className="btn-ghost" onClick={fetchPrices} disabled={pricesLoading}
+          <button className="btn-ghost" onClick={() => fetchPrices(true)} disabled={pricesLoading}
             style={{ fontSize: "0.8rem", padding: "0.4rem 0.75rem" }}>
             {pricesLoading ? "⏳" : "↻ Refresh"}
           </button>
