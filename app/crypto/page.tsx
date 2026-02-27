@@ -30,8 +30,25 @@ function coinColor(symbol: string): string {
 }
 
 function CoinAvatar({ symbol, size = 26 }: { symbol: string; size?: number }) {
+  const [imgError, setImgError] = useState(false);
+  const src = `/crypto-icons/${symbol.toLowerCase()}.png`;
   const bg = coinColor(symbol);
   const label = symbol.length <= 3 ? symbol : symbol.slice(0, 2);
+
+  if (!imgError) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt={symbol}
+        width={size}
+        height={size}
+        onError={() => setImgError(true)}
+        style={{ borderRadius: "50%", flexShrink: 0, objectFit: "contain" }}
+      />
+    );
+  }
+
   return (
     <div style={{
       width: size, height: size, borderRadius: "50%",
