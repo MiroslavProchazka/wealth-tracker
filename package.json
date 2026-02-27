@@ -7,7 +7,15 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:setup": "npx prisma generate && node -e \"const D=require('better-sqlite3'),fs=require('fs'),p=require('path');const db=new D(p.join(process.cwd(),'prisma/dev.db'));fs.readFileSync('prisma/migrations/20260226214346_init/migration.sql','utf8').split(';').map(s=>s.trim()).filter(Boolean).forEach(s=>db.exec(s));db.close();console.log('DB ready');\""
+    "db:setup": "npx prisma generate && node -e \"const D=require('better-sqlite3'),fs=require('fs'),p=require('path');const db=new D(p.join(process.cwd(),'prisma/dev.db'));fs.readFileSync('prisma/migrations/20260226214346_init/migration.sql','utf8').split(';').map(s=>s.trim()).filter(Boolean).forEach(s=>db.exec(s));db.close();console.log('DB ready');\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:build": "tsc --noEmit && eslint && next build",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@evolu/common": "^7.4.1",
@@ -25,16 +33,26 @@
     "prisma": "^7.4.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "recharts": "^3.7.0"
+    "recharts": "^3.7.0",
+    "yahoo-finance2": "^3.13.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^5.1.4",
+    "@vitest/coverage-v8": "^4.0.18",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "jsdom": "^28.1.0",
+    "msw": "^2.12.10",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.0.18"
   }
 }
