@@ -47,23 +47,28 @@ describe("StatCard", () => {
     it("subPositive undefined → muted barva", () => {
       render(<StatCard label="L" value="V" sub="n/a" />);
       const subEl = screen.getByText("n/a");
-      expect(subEl).toHaveStyle({ color: "var(--muted)" });
+      expect(subEl).toHaveStyle({ color: "var(--text-2)" });
     });
   });
 
-  describe("accent (barevný levý rámeček)", () => {
-    it("accent nastaví borderLeft", () => {
+  describe("accent (barevná linka nahoře)", () => {
+    it("accent renderuje barevný top line element", () => {
       const { container } = render(
         <StatCard label="L" value="V" accent="#3b82f6" />
       );
       const card = container.firstChild as HTMLElement;
-      expect(card).toHaveStyle({ borderLeft: "3px solid #3b82f6" });
+      // Accent je absolutně pozicovaný div nahoře na kartě
+      const divs = Array.from(card.querySelectorAll("div")) as HTMLElement[];
+      const accentLine = divs.find((el) => el.style.position === "absolute");
+      expect(accentLine).toBeTruthy();
     });
 
-    it("bez accent nemá borderLeft", () => {
+    it("bez accent nemá top line element", () => {
       const { container } = render(<StatCard label="L" value="V" />);
       const card = container.firstChild as HTMLElement;
-      expect(card.style.borderLeft).toBeFalsy();
+      const divs = Array.from(card.querySelectorAll("div")) as HTMLElement[];
+      const accentLine = divs.find((el) => el.style.position === "absolute");
+      expect(accentLine).toBeUndefined();
     });
   });
 
