@@ -16,7 +16,8 @@
     "test:e2e:headed": "playwright test --headed",
     "test:build": "tsc --noEmit && eslint && next build",
     "typecheck": "tsc --noEmit",
-    "release": "bash scripts/release.sh"
+    "release": "bash scripts/release.sh",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@evolu/common": "^7.4.1",
