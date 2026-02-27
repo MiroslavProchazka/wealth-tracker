@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ─── Crypto Holdings ─────────────────────────────────────────────────────────
+model CryptoHolding {
+  id        String   @id @default(cuid())
+  symbol    String   // e.g. BTC, ETH
+  name      String   // e.g. Bitcoin
+  amount    Float
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Stock Holdings ───────────────────────────────────────────────────────────
+model StockHolding {
+  id           String   @id @default(cuid())
+  ticker       String   // e.g. AAPL, MSFT
+  name         String
+  shares       Float
+  currency     String   @default("USD")
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ─── Properties ───────────────────────────────────────────────────────────────
+model Property {
+  id              String    @id @default(cuid())
+  name            String    // e.g. "Prague Flat"
+  address         String?
+  estimatedValue  Float
+  currency        String    @default("CZK")
+  // Mortgage details
+  hasMortgage     Boolean   @default(false)
+  originalLoan    Float?
+  remainingLoan   Float?
+  monthlyPayment  Float?
+  interestRate    Float?    // annual % e.g. 4.5
+  mortgageStart   DateTime?
+  mortgageEnd     DateTime?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+// ─── Receivables (work money) ─────────────────────────────────────────────────
+model Receivable {
+  id          String         @id @default(cuid())
+  description String
+  client      String?
+  amount      Float
+  currency    String         @default("CZK")
+  invoiced    Boolean        @default(false)
+  dueDate     DateTime?
+  status      ReceivableStatus @default(PENDING)
+  notes       String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+enum ReceivableStatus {
+  PENDING
+  INVOICED
+  PAID
+  OVERDUE
+}
+
+// ─── Savings Accounts ─────────────────────────────────────────────────────────
+model SavingsAccount {
+  id           String   @id @default(cuid())
+  name         String   // e.g. "Spořicí účet ČSOB"
+  bank         String
+  balance      Float
+  currency     String   @default("CZK")
+  interestRate Float?   // annual %
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ─── Bank Accounts ────────────────────────────────────────────────────────────
+model BankAccount {
+  id        String   @id @default(cuid())
+  name      String   // e.g. "Revolut EUR"
+  bank      String
+  balance   Float
+  currency  String   @default("CZK")
+  iban      String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Financial Goals ──────────────────────────────────────────────────────────
+model Goal {
+  id          String    @id @default(cuid())
+  name        String
+  targetAmount Float
+  currency    String    @default("CZK")
+  deadline    DateTime?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// ─── Net Worth Snapshots (for historical charts) ───────────────────────────────
+model NetWorthSnapshot {
+  id            String   @id @default(cuid())
+  date          DateTime @default(now())
+  totalAssets   Float
+  totalLiabilities Float
+  netWorth      Float
+  cryptoValue   Float    @default(0)
+  stocksValue   Float    @default(0)
+  propertyValue Float    @default(0)
+  savingsValue  Float    @default(0)
+  bankValue     Float    @default(0)
+  receivablesValue Float @default(0)
+  currency      String   @default("CZK")
+}
+
+// ─── Exchange Rates cache ─────────────────────────────────────────────────────
+model ExchangeRate {
+  id        String   @id @default(cuid())
+  from      String   // e.g. USD
+  to        String   // e.g. CZK
+  rate      Float
+  updatedAt DateTime @updatedAt
+}
