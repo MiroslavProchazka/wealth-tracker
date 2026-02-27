@@ -11,6 +11,40 @@ import {
   ResponsiveContainer, CartesianGrid,
 } from "recharts";
 
+// ── Coin avatar ───────────────────────────────────────────────────────────────
+
+const COIN_COLORS: Record<string, string> = {
+  BTC: "#f7931a", ETH: "#627eea", SOL: "#9945ff", BNB: "#f0b90b",
+  ADA: "#0033ad", XRP: "#346aa9", DOT: "#e6007a", MATIC: "#8247e5",
+  LINK: "#2a5ada", UNI: "#ff007a", AVAX: "#e84142", ATOM: "#2e3148",
+  LTC: "#bfbbbb", USDT: "#26a17b", USDC: "#2775ca", DOGE: "#c2a633",
+};
+
+function coinColor(symbol: string): string {
+  if (COIN_COLORS[symbol]) return COIN_COLORS[symbol];
+  // deterministic color from symbol string
+  let hash = 0;
+  for (let i = 0; i < symbol.length; i++) hash = symbol.charCodeAt(i) + ((hash << 5) - hash);
+  const hue = Math.abs(hash) % 360;
+  return `hsl(${hue}, 60%, 50%)`;
+}
+
+function CoinAvatar({ symbol, size = 26 }: { symbol: string; size?: number }) {
+  const bg = coinColor(symbol);
+  const label = symbol.length <= 3 ? symbol : symbol.slice(0, 2);
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: "50%",
+      background: bg, flexShrink: 0,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontSize: size <= 26 ? "0.55rem" : "0.7rem",
+      fontWeight: 800, color: "white", letterSpacing: "-0.02em",
+    }}>
+      {label}
+    </div>
+  );
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface PriceData {
@@ -19,7 +53,6 @@ interface PriceData {
   eur: number;
   change24h: number;
   name: string;
-  image: string;
 }
 
 interface PriceAlert {
@@ -446,11 +479,7 @@ export default function CryptoPage() {
                   <tr key={h.id as string}>
                     <td>
                       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                        {h.price?.image
-                          // eslint-disable-next-line @next/next/no-img-element
-                          ? <img src={h.price.image} alt={h.symbol} width={24} height={24} style={{ borderRadius: "50%" }} />
-                          : <div style={{ width: 24, height: 24, borderRadius: "50%", background: "var(--card-border)" }} />
-                        }
+                        <CoinAvatar symbol={h.symbol} size={26} />
                         <div>
                           <div style={{ fontWeight: 700, color: "var(--yellow)", fontFamily: "monospace", fontSize: "0.88rem" }}>{h.symbol}</div>
                           <div style={{ fontSize: "0.72rem", color: "var(--muted)" }}>{h.name as string}</div>
