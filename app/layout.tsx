@@ -15,10 +15,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body style={{ display: "flex", minHeight: "100vh" }}>
+      <body style={{ display: "flex", minHeight: "100vh", background: "var(--bg)" }}>
         <EvoluClientProvider>
           <Sidebar />
-          <main style={{ flex: 1, padding: "2rem", maxWidth: "1400px" }}>
+          <main style={{
+            flex: 1,
+            padding: "2rem 2.5rem",
+            maxWidth: "1400px",
+            overflowX: "hidden",
+            minWidth: 0,
+          }}>
             {children}
           </main>
         </EvoluClientProvider>
