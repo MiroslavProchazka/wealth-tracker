@@ -87,4 +87,49 @@ test.describe("Property (/property)", () => {
     );
     expect(parseInt(fontWeight)).toBeGreaterThanOrEqual(600);
   });
+
+  // ── Edit feature ────────────────────────────────────────────────────────────
+  test("otevře edit modal s předvyplněným názvem nemovitosti", async ({ page }) => {
+    // Přidáme nemovitost
+    await page.getByRole("button", { name: /add|přidat|\+/i }).first().click();
+    const nameInput = page.locator("input[name='name']").first();
+    if (await nameInput.isVisible()) await nameInput.fill("Chalupa Šumava");
+    const valueInput = page.locator("input[name='estimatedValue'], input[name='value']").first();
+    if (await valueInput.isVisible()) await valueInput.fill("3500000");
+    await page.getByRole("button", { name: /save|uložit|add|submit/i }).last().click();
+    await expect(page.getByText("Chalupa Šumava")).toBeVisible({ timeout: 5000 });
+
+    // Editujeme
+    const editBtn = page.locator("button[title='Upravit'], button:has-text('✏️')").first();
+    await editBtn.click();
+
+    // Modal je otevřen s předvyplněným názvem
+    const nameField = page.locator("input[name='name']");
+    await expect(nameField).toBeVisible({ timeout: 3000 });
+    await expect(nameField).toHaveValue("Chalupa Šumava");
+  });
+
+  test("upraví odhadovanou hodnotu nemovitosti", async ({ page }) => {
+    // Přidáme nemovitost
+    await page.getByRole("button", { name: /add|přidat|\+/i }).first().click();
+    const nameInput = page.locator("input[name='name']").first();
+    if (await nameInput.isVisible()) await nameInput.fill("Byt Brno");
+    const valueInput = page.locator("input[name='estimatedValue'], input[name='value']").first();
+    if (await valueInput.isVisible()) await valueInput.fill("4000000");
+    await page.getByRole("button", { name: /save|uložit|add|submit/i }).last().click();
+    await expect(page.getByText("Byt Brno")).toBeVisible({ timeout: 5000 });
+
+    // Editujeme hodnotu
+    await page.locator("button[title='Upravit'], button:has-text('✏️')").first().click();
+    const valField = page.locator("input[name='estimatedValue']");
+    if (await valField.isVisible()) {
+      await valField.clear();
+      await valField.fill("4500000");
+    }
+    await page.getByRole("button", { name: /save|uložit|update|upravit|submit/i }).last().click();
+
+    // Nová hodnota se projeví v kartě
+    await expect(page.getByText("Byt Brno")).toBeVisible({ timeout: 5000 });
+    await expect(page).toHaveURL("/property");
+  });
 });

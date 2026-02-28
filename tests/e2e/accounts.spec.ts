@@ -58,4 +58,54 @@ test.describe("Bank Accounts (/accounts)", () => {
     );
     expect(parseInt(fontWeight)).toBeGreaterThanOrEqual(600);
   });
+
+  // ── Edit feature ────────────────────────────────────────────────────────────
+  test("otevře edit modal s předvyplněnými hodnotami bankovního účtu", async ({ page }) => {
+    // Přidáme účet
+    await page.getByRole("button", { name: /add|přidat|\+/i }).first().click();
+    const nameInput = page.locator("input[name='name']").first();
+    if (await nameInput.isVisible()) await nameInput.fill("Wise USD");
+    const bankInput = page.locator("input[name='bank']").first();
+    if (await bankInput.isVisible()) await bankInput.fill("Wise");
+    const balanceInput = page.locator("input[name='balance']").first();
+    if (await balanceInput.isVisible()) await balanceInput.fill("2000");
+    const currencySelect = page.locator("select[name='currency']");
+    if (await currencySelect.isVisible()) await currencySelect.selectOption("USD");
+    await page.getByRole("button", { name: /save|uložit|add|submit/i }).last().click();
+    await expect(page.getByText("Wise USD")).toBeVisible({ timeout: 5000 });
+
+    // Editujeme
+    const editBtn = page.locator("button[title='Upravit'], button:has-text('✏️')").first();
+    await editBtn.click();
+
+    // Modal je otevřen s předvyplněným názvem
+    const nameField = page.locator("input[name='name']");
+    await expect(nameField).toBeVisible({ timeout: 3000 });
+    await expect(nameField).toHaveValue("Wise USD");
+  });
+
+  test("upraví zůstatek bankovního účtu", async ({ page }) => {
+    // Přidáme účet
+    await page.getByRole("button", { name: /add|přidat|\+/i }).first().click();
+    const nameInput = page.locator("input[name='name']").first();
+    if (await nameInput.isVisible()) await nameInput.fill("Moneta CZK");
+    const bankInput = page.locator("input[name='bank']").first();
+    if (await bankInput.isVisible()) await bankInput.fill("Moneta");
+    const balanceInput = page.locator("input[name='balance']").first();
+    if (await balanceInput.isVisible()) await balanceInput.fill("30000");
+    await page.getByRole("button", { name: /save|uložit|add|submit/i }).last().click();
+    await expect(page.getByText("Moneta CZK")).toBeVisible({ timeout: 5000 });
+
+    // Editujeme zůstatek
+    await page.locator("button[title='Upravit'], button:has-text('✏️')").first().click();
+    const balField = page.locator("input[name='balance']");
+    if (await balField.isVisible()) {
+      await balField.clear();
+      await balField.fill("45000");
+    }
+    await page.getByRole("button", { name: /save|uložit|update|upravit|submit/i }).last().click();
+
+    // Účet stále viditelný
+    await expect(page.getByText("Moneta CZK")).toBeVisible({ timeout: 5000 });
+  });
 });
