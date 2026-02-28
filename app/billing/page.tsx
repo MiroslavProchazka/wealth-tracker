@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as Evolu from "@evolu/common";
 import { useQuery } from "@evolu/react";
 import { useEvolu } from "@/lib/evolu";
@@ -9,7 +9,7 @@ import FormField from "@/components/FormField";
 import { formatCurrency } from "@/lib/currencies";
 import Link from "next/link";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface ClockifyProject {
   id: string;
@@ -17,6 +17,8 @@ interface ClockifyProject {
   totalHours: number;
   entryCount: number;
 }
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function currentYearMonth() {
   const n = new Date();
@@ -60,52 +62,105 @@ export default function BillingPage() {
   const [month, setMonth] = useState(currentYearMonth);
 
   // ── Clockify state ──────────────────────────────────────────────────────────
-  const [projects, setProjects]     = useState<ClockifyProject[]>([]);
-  const [loading, setLoading]       = useState(false);
-  const [error, setError]           = useState<string | null>(null);
-  const [fetchedAt, setFetchedAt]   = useState<string | null>(null);
-  const [noApiKey, setNoApiKey]     = useState(false);
+  const [projects, setProjects]   = useState<ClockifyProject[]>([]);
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState<string | null>(null);
+  const [fetchedAt, setFetchedAt] = useState<string | null>(null);
+  const [noApiKey, setNoApiKey]   = useState(false);
 
   // ── Evolu queries ───────────────────────────────────────────────────────────
   const ratesQ = useMemo(() => evolu.createQuery((db) =>
     db.selectFrom("clockifyProjectRate").selectAll()
       .where("isDeleted", "is not", Evolu.sqliteTrue)
-      .where("deleted", "is not", Evolu.sqliteTrue)
+      .where("deleted",   "is not", Evolu.sqliteTrue)
+  ), [evolu]);
+
+  const monthlyEarningsQ = useMemo(() => evolu.createQuery((db) =>
+    db.selectFrom("clockifyMonthlyEarnings").selectAll()
+      .where("isDeleted", "is not", Evolu.sqliteTrue)
+      .where("deleted",   "is not", Evolu.sqliteTrue)
   ), [evolu]);
 
   const invoicedQ = useMemo(() => evolu.createQuery((db) =>
     db.selectFrom("clockifyInvoicedPeriod").selectAll()
       .where("isDeleted", "is not", Evolu.sqliteTrue)
-      .where("deleted", "is not", Evolu.sqliteTrue)
+      .where("deleted",   "is not", Evolu.sqliteTrue)
   ), [evolu]);
 
   const receivablesQ = useMemo(() => evolu.createQuery((db) =>
     db.selectFrom("receivable").selectAll()
       .where("isDeleted", "is not", Evolu.sqliteTrue)
-      .where("deleted", "is not", Evolu.sqliteTrue)
+      .where("deleted",   "is not", Evolu.sqliteTrue)
       .orderBy("createdAt", "desc")
   ), [evolu]);
 
-  const rates      = useQuery(ratesQ);
-  const invoiced   = useQuery(invoicedQ);
-  const receivables = useQuery(receivablesQ);
+  const rates          = useQuery(ratesQ);
+  const monthlyEarnings = useQuery(monthlyEarningsQ);
+  const invoiced       = useQuery(invoicedQ);
+  const receivables    = useQuery(receivablesQ);
 
-  // ── Rate map: clockifyProjectId → { rateId, hourlyRate, currency } ─────────
+  // ── Rate map: clockifyProjectId → { rateId, hourlyRate, currency, initialEarnings } ──
   const rateMap = useMemo(() => {
-    const m: Record<string, { rateId: string; hourlyRate: number; currency: string }> = {};
+    const m: Record<string, {
+      rateId: string;
+      name: string;
+      hourlyRate: number;
+      currency: string;
+      initialEarnings: number;
+    }> = {};
     for (const r of rates) {
       m[r.clockifyProjectId as string] = {
-        rateId:     r.id as string,
-        hourlyRate: r.hourlyRate as number,
-        currency:   r.currency as string,
+        rateId:          r.id as string,
+        name:            r.name as string,
+        hourlyRate:      r.hourlyRate as number,
+        currency:        r.currency as string,
+        initialEarnings: (r.initialEarnings as number | null) ?? 0,
       };
     }
     return m;
   }, [rates]);
 
-  // ── Invoiced map: `projectId:yearMonth` → { invId, hours, amount, currency }
-  // invId is stored so we can UPDATE the record instead of inserting a duplicate
-  // when the user clicks "+ Znovu fakturovat".
+  // ── Monthly earnings map: "projectId:yearMonth" → { earningId, hours } ─────
+  const monthlyEarningsMap = useMemo(() => {
+    const m: Record<string, { earningId: string; hours: number }> = {};
+    for (const e of monthlyEarnings) {
+      const key = `${e.clockifyProjectId as string}:${e.yearMonth as string}`;
+      m[key] = { earningId: e.id as string, hours: e.hours as number };
+    }
+    return m;
+  }, [monthlyEarnings]);
+
+  // ── Total hours earned per project (across all synced months) ───────────────
+  const totalHoursByProject = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const e of monthlyEarnings) {
+      const pid = e.clockifyProjectId as string;
+      m[pid] = (m[pid] ?? 0) + (e.hours as number);
+    }
+    return m;
+  }, [monthlyEarnings]);
+
+  // ── Total invoiced per project — keyed by projectId, per-currency sums ───────
+  // Summing across currencies would produce misleading numbers, so we only sum
+  // records whose currency matches the project's current currency setting.
+  // Records in a different currency (e.g. from a prior rate configuration) are
+  // excluded from the balance calculation; a currency mismatch is surfaced in the UI.
+  const totalInvoicedByProject = useMemo(() => {
+    const m: Record<string, { amount: number; currency: string }> = {};
+    for (const inv of invoiced) {
+      const pid = inv.clockifyProjectId as string;
+      const cur = inv.currency as string;
+      if (!m[pid]) {
+        m[pid] = { amount: inv.amount as number, currency: cur };
+      } else if (m[pid].currency === cur) {
+        m[pid].amount += inv.amount as number;
+      }
+      // Different currency — intentionally skipped; balance stays conservative
+    }
+    return m;
+  }, [invoiced]);
+
+  // ── Invoiced period map: "projectId:yearMonth" → { invId, hours, amount, currency } ──
   const invoicedMap = useMemo(() => {
     const m: Record<string, { invId: string; hours: number; amount: number; currency: string }> = {};
     for (const inv of invoiced) {
@@ -120,68 +175,103 @@ export default function BillingPage() {
     return m;
   }, [invoiced]);
 
-  // ── Fetch Clockify data ─────────────────────────────────────────────────────
+  // Keep a ref to monthlyEarningsMap so fetchClockify doesn't go stale
+  const monthlyEarningsMapRef = useRef(monthlyEarningsMap);
+  useEffect(() => { monthlyEarningsMapRef.current = monthlyEarningsMap; }, [monthlyEarningsMap]);
+
+  // ── Fetch Clockify + auto-save monthly earnings snapshots ───────────────────
   const fetchClockify = useCallback(async () => {
     setLoading(true);
     setError(null);
     setNoApiKey(false);
-    // Clear previous month's data immediately so stale projects can't be
-    // accidentally invoiced against the wrong period.
     setProjects([]);
     setFetchedAt(null);
     try {
       const res  = await fetch(`/api/clockify?month=${month}`);
       const data = await res.json();
       if (!res.ok) {
-        if (res.status === 503) { setNoApiKey(true); }
-        else { setError(data.error ?? "Chyba při načítání z Clockify"); }
-        // projects / fetchedAt stay cleared
+        if (res.status === 503) setNoApiKey(true);
+        else setError(data.error ?? "Chyba při načítání z Clockify");
         return;
       }
-      setProjects(data.projects ?? []);
+      const fetched: ClockifyProject[] = data.projects ?? [];
+      setProjects(fetched);
       setFetchedAt(data.fetchedAt ?? null);
+
+      // Auto-save monthly earnings snapshot for each project with hours
+      const map = monthlyEarningsMapRef.current;
+      for (const p of fetched) {
+        const key = `${p.id}:${month}`;
+        const existing = map[key];
+        if (existing) {
+          evolu.update("clockifyMonthlyEarnings", {
+            id: existing.earningId as never,
+            hours: p.totalHours,
+          } as never);
+        } else {
+          evolu.insert("clockifyMonthlyEarnings", {
+            clockifyProjectId: p.id,
+            yearMonth: month,
+            hours: p.totalHours,
+            deleted: Evolu.sqliteFalse,
+          } as never);
+        }
+      }
     } catch {
       setError("Nelze se připojit k Clockify API");
-      // projects / fetchedAt stay cleared
     } finally {
       setLoading(false);
     }
-  }, [month]);
+  }, [month, evolu]);
 
-  // Auto-fetch on mount + month change
   useEffect(() => { fetchClockify(); }, [fetchClockify]);
 
   // ── Rate editing (local inline state) ──────────────────────────────────────
-  const [rateInputs, setRateInputs] = useState<Record<string, { rate: string; currency: string }>>({});
+  const [rateInputs, setRateInputs] = useState<
+    Record<string, { rate: string; currency: string; initialEarnings: string }>
+  >({});
 
   function getRateInput(projectId: string) {
     if (rateInputs[projectId]) return rateInputs[projectId];
-    const existing = rateMap[projectId];
-    return { rate: existing ? String(existing.hourlyRate) : "", currency: existing?.currency ?? "CZK" };
+    const ex = rateMap[projectId];
+    return {
+      rate:            ex ? String(ex.hourlyRate) : "",
+      currency:        ex?.currency ?? "CZK",
+      initialEarnings: ex ? String(ex.initialEarnings) : "0",
+    };
   }
 
-  function handleRateChange(projectId: string, field: "rate" | "currency", value: string) {
+  function handleRateChange(
+    projectId: string,
+    field: "rate" | "currency" | "initialEarnings",
+    value: string
+  ) {
     setRateInputs((prev) => {
-      // Use prev[projectId] (not getRateInput) to avoid reading stale state
-      // inside the updater — getRateInput reads rateInputs from the outer closure.
       const current = prev[projectId] ?? (() => {
         const ex = rateMap[projectId];
-        return { rate: ex ? String(ex.hourlyRate) : "", currency: ex?.currency ?? "CZK" };
+        return {
+          rate:            ex ? String(ex.hourlyRate) : "",
+          currency:        ex?.currency ?? "CZK",
+          initialEarnings: ex ? String(ex.initialEarnings) : "0",
+        };
       })();
       return { ...prev, [projectId]: { ...current, [field]: value } };
     });
   }
 
   function saveRate(projectId: string, name: string) {
-    const inp = getRateInput(projectId);
+    const inp  = getRateInput(projectId);
     const rate = parseFloat(inp.rate);
+    const init = parseFloat(inp.initialEarnings);
     if (isNaN(rate) || rate < 0) return;
     const existing = rateMap[projectId];
+    const initialEarnings = isNaN(init) || init < 0 ? 0 : init;
     if (existing) {
       evolu.update("clockifyProjectRate", {
         id: existing.rateId as never,
         hourlyRate: rate,
         currency: inp.currency,
+        initialEarnings,
         name,
       } as never);
     } else {
@@ -190,6 +280,7 @@ export default function BillingPage() {
         name,
         hourlyRate: rate,
         currency: inp.currency,
+        initialEarnings,
         deleted: Evolu.sqliteFalse,
       } as never);
     }
@@ -198,21 +289,35 @@ export default function BillingPage() {
 
   // ── Invoice creation modal ──────────────────────────────────────────────────
   const [invoiceModal, setInvoiceModal] = useState<{
-    project: ClockifyProject;
-    hours: number;
-    amount: number;
+    project: ClockifyProject | { id: string; name: string };
+    nevyfakturováno: number;
     currency: string;
   } | null>(null);
-  const [invoiceForm, setInvoiceForm] = useState({ description: "", dueDate: "" });
+  const [invoiceForm, setInvoiceForm] = useState({ description: "", amount: "", dueDate: "" });
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
 
-  function openInvoiceModal(p: ClockifyProject) {
-    const inp = getRateInput(p.id);
-    const rate = parseFloat(inp.rate);
-    const amount = isNaN(rate) ? 0 : Math.round(p.totalHours * rate * 100) / 100;
-    setInvoiceModal({ project: p, hours: p.totalHours, amount, currency: inp.currency });
-    const defaultDesc = `${p.name} — ${monthLabel(month)}`;
-    setInvoiceForm({ description: defaultDesc, dueDate: "" });
+  function openInvoiceModal(projectId: string, projectName: string) {
+    const rateInfo = rateMap[projectId];
+    const rate     = rateInfo?.hourlyRate ?? 0;
+    const currency = rateInfo?.currency ?? "CZK";
+    const totalHours    = totalHoursByProject[projectId] ?? 0;
+    const totalEarned   = (rateInfo?.initialEarnings ?? 0) + totalHours * rate;
+    const invoicedEntry = totalInvoicedByProject[projectId];
+    // Only subtract invoiced amount when currencies match; otherwise keep full balance
+    const totalInvoiced = (invoicedEntry && invoicedEntry.currency === currency)
+      ? invoicedEntry.amount : 0;
+    const nev = Math.max(0, totalEarned - totalInvoiced);
+
+    setInvoiceModal({
+      project: { id: projectId, name: projectName },
+      nevyfakturováno: nev,
+      currency,
+    });
+    setInvoiceForm({
+      description: `${projectName} — ${monthLabel(month)}`,
+      amount: nev > 0 ? String(Math.round(nev)) : "",
+      dueDate: "",
+    });
     setInvoiceError(null);
   }
 
@@ -220,21 +325,16 @@ export default function BillingPage() {
     e.preventDefault();
     if (!invoiceModal) return;
 
-    // ── Client-side validation ───────────────────────────────────────────────
     const description = invoiceForm.description.trim();
-    if (!description) {
-      setInvoiceError("Popis faktury je povinný");
-      return;
-    }
-    if (invoiceModal.amount <= 0) {
-      setInvoiceError("Výsledná částka musí být větší než 0 — nastav prosím hodinovou sazbu");
-      return;
-    }
+    const amount      = parseFloat(invoiceForm.amount);
+    if (!description) { setInvoiceError("Popis faktury je povinný"); return; }
+    if (isNaN(amount) || amount <= 0) { setInvoiceError("Zadej platnou částku větší než 0"); return; }
     setInvoiceError(null);
 
-    const { project, hours, amount, currency } = invoiceModal;
+    const { project, currency } = invoiceModal;
+    const currentMonthHours = projects.find(p => p.id === project.id)?.totalHours ?? 0;
 
-    // 1. Insert receivable
+    // 1. Insert receivable (pohledávka)
     evolu.insert("receivable", {
       description,
       client: project.name,
@@ -242,18 +342,17 @@ export default function BillingPage() {
       currency,
       status: "INVOICED",
       dueDate: invoiceForm.dueDate || null,
-      notes: `Clockify — ${formatHours(hours)} · ${monthLabel(month)}`,
+      notes: `Clockify · ${monthLabel(month)}${currentMonthHours > 0 ? ` · ${formatHours(currentMonthHours)}` : ""}`,
       deleted: Evolu.sqliteFalse,
     } as never);
 
-    // 2. Mark / update invoiced period.
-    //    Update existing record if one already exists for this project+month to avoid
-    //    duplicate rows ("+ Znovu fakturovat" path).
-    const existingInv = invoicedMap[`${project.id}:${month}`];
+    // 2. Record invoiced period (update if exists to avoid duplicates)
+    const invKey = `${project.id}:${month}`;
+    const existingInv = invoicedMap[invKey];
     if (existingInv) {
       evolu.update("clockifyInvoicedPeriod", {
         id: existingInv.invId as never,
-        hours,
+        hours: currentMonthHours,
         amount,
         currency,
       } as never);
@@ -261,7 +360,7 @@ export default function BillingPage() {
       evolu.insert("clockifyInvoicedPeriod", {
         clockifyProjectId: project.id,
         yearMonth: month,
-        hours,
+        hours: currentMonthHours,
         amount,
         currency,
         deleted: Evolu.sqliteFalse,
@@ -274,7 +373,7 @@ export default function BillingPage() {
     setInvoiceModal(null);
   }
 
-  // ── Receivables CRUD (manual) ───────────────────────────────────────────────
+  // ── Receivables CRUD ────────────────────────────────────────────────────────
   function markPaid(id: string) {
     evolu.update("receivable", { id: id as never, status: "PAID" } as never);
   }
@@ -283,14 +382,49 @@ export default function BillingPage() {
     evolu.update("receivable", { id: id as never, deleted: Evolu.sqliteTrue } as never);
   }
 
-  // Group pending amounts by currency to avoid misleading cross-currency summation
+  // Outstanding receivables = INVOICED + OVERDUE (invoice sent, payment pending).
+  // PENDING receivables are not yet invoiced — they're represented by "nevyfakturováno" above.
   const pendingByCurrency = receivables
-    .filter((r) => String(r.status) !== "PAID")
+    .filter((r) => ["INVOICED", "OVERDUE"].includes(String(r.status)))
     .reduce<Record<string, number>>((acc, r) => {
       const cur = String(r.currency ?? "CZK");
       acc[cur] = (acc[cur] ?? 0) + (r.amount as number);
       return acc;
     }, {});
+
+  // ── All known projects (union of synced + stored) ───────────────────────────
+  // We show projects even if current month has no hours, as long as they have
+  // stored earnings or a configured rate.
+  const allProjectIds = useMemo(() => {
+    const ids = new Set<string>();
+    projects.forEach(p => ids.add(p.id));
+    rates.forEach(r => ids.add(r.clockifyProjectId as string));
+    return ids;
+  }, [projects, rates]);
+
+  // Build a displayable project list (merging live Clockify data with stored rates)
+  const displayProjects = useMemo(() => {
+    return Array.from(allProjectIds).map(id => {
+      const live    = projects.find(p => p.id === id);
+      const rateInfo = rateMap[id];
+      const name    = live?.name ?? rateInfo?.name ?? id;
+      const thisMonthHours = live?.totalHours ?? 0;
+      const entryCount     = live?.entryCount ?? 0;
+
+      const rate           = rateInfo?.hourlyRate ?? 0;
+      const currency       = rateInfo?.currency ?? "CZK";
+      const initialEarnings = rateInfo?.initialEarnings ?? 0;
+      const totalHours      = totalHoursByProject[id] ?? 0;
+      const totalEarned     = initialEarnings + totalHours * rate;
+      const invoicedEntry   = totalInvoicedByProject[id];
+      const totalInvoiced   = (invoicedEntry && invoicedEntry.currency === currency)
+        ? invoicedEntry.amount : 0;
+      const currencyMismatch = !!invoicedEntry && invoicedEntry.currency !== currency;
+      const nevyfakturováno = Math.max(0, totalEarned - totalInvoiced);
+
+      return { id, name, thisMonthHours, entryCount, rate, currency, initialEarnings, totalEarned, totalInvoiced, nevyfakturováno, hasRate: !!rateInfo, currencyMismatch };
+    }).sort((a, b) => b.nevyfakturováno - a.nevyfakturováno);
+  }, [allProjectIds, projects, rateMap, totalHoursByProject, totalInvoicedByProject]);
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -300,12 +434,9 @@ export default function BillingPage() {
         <div>
           <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 700 }}>Billing</h1>
           <p style={{ color: "var(--muted)", margin: "0.35rem 0 0", fontSize: "0.875rem" }}>
-            Clockify čas · fakturace · pohledávky
+            Clockify čas · nevyfakturováno · pohledávky
           </p>
         </div>
-        <Link href="/receivables" style={{ fontSize: "0.8rem", color: "var(--muted)", textDecoration: "none", padding: "0.4rem 0.75rem", border: "1px solid var(--border)", borderRadius: "6px" }}>
-          + Ruční pohledávka
-        </Link>
       </div>
 
       {/* ── Clockify section ── */}
@@ -332,10 +463,9 @@ export default function BillingPage() {
           <div style={{ padding: "1.5rem", borderRadius: "10px", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)", fontSize: "0.875rem" }}>
             <div style={{ fontWeight: 700, color: "var(--yellow)", marginBottom: "0.5rem" }}>⚠ Clockify API klíč není nastaven</div>
             <div style={{ color: "var(--muted)", lineHeight: 1.6 }}>
-              Přidej proměnnou <code style={{ background: "rgba(255,255,255,0.08)", padding: "0.1rem 0.4rem", borderRadius: "4px" }}>CLOCKIFY_API_KEY</code> do svého{" "}
-              <code style={{ background: "rgba(255,255,255,0.08)", padding: "0.1rem 0.4rem", borderRadius: "4px" }}>.env.local</code> souboru nebo do Vercel environment variables.
-              <br />
-              API klíč najdeš v <strong>Clockify → Nastavení → Profile Settings → API</strong>.
+              Přidej proměnnou <code style={{ background: "rgba(255,255,255,0.08)", padding: "0.1rem 0.4rem", borderRadius: "4px" }}>CLOCKIFY_API_KEY</code> do{" "}
+              <code style={{ background: "rgba(255,255,255,0.08)", padding: "0.1rem 0.4rem", borderRadius: "4px" }}>.env.local</code> nebo do Vercel environment variables.
+              API klíč najdeš v <strong>Clockify → Profile Settings → API</strong>.
             </div>
           </div>
         )}
@@ -347,140 +477,140 @@ export default function BillingPage() {
           </div>
         )}
 
-        {/* Empty month */}
-        {!loading && !error && !noApiKey && projects.length === 0 && (
+        {/* Project cards */}
+        {displayProjects.length === 0 && !loading && !error && !noApiKey && (
           <div style={{ padding: "2rem", textAlign: "center", color: "var(--muted)", fontSize: "0.875rem" }}>
-            Žádné záznamy v Clockify pro {monthLabel(month)}
+            Žádné projekty. Klikni ↻ Sync Clockify pro načtení dat.
           </div>
         )}
 
-        {/* Project cards */}
-        {projects.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-            {projects.map((p) => {
-              const inp         = getRateInput(p.id);
-              const rate        = parseFloat(inp.rate);
-              const amount      = (!isNaN(rate) && rate > 0) ? Math.round(p.totalHours * rate * 100) / 100 : null;
-              const invKey      = `${p.id}:${month}`;
-              const alreadyInv  = invoicedMap[invKey];
-              const isDirty     = !!rateInputs[p.id];
+        {displayProjects.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+            {displayProjects.map((p) => {
+              const inp    = getRateInput(p.id);
+              const isDirty = !!rateInputs[p.id];
+              const thisMonthAmount = p.rate > 0 ? Math.round(p.thisMonthHours * p.rate * 100) / 100 : null;
 
               return (
                 <div key={p.id} style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr auto",
-                  gap: "1rem",
-                  alignItems: "center",
-                  padding: "1rem 1.25rem",
-                  borderRadius: "10px",
-                  background: alreadyInv ? "rgba(16,185,129,0.05)" : "rgba(255,255,255,0.025)",
-                  border: `1px solid ${alreadyInv ? "rgba(16,185,129,0.2)" : "var(--border)"}`,
+                  padding: "1.25rem 1.5rem",
+                  borderRadius: "12px",
+                  background: "rgba(255,255,255,0.025)",
+                  border: "1px solid var(--border)",
                 }}>
-                  {/* Left: project info + rate inputs */}
-                  <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.6rem" }}>
-                      <span style={{ fontWeight: 700, fontSize: "1rem" }}>{p.name}</span>
-                      <span style={{ fontSize: "0.72rem", color: "var(--muted)", padding: "0.15rem 0.5rem", borderRadius: "12px", background: "rgba(255,255,255,0.07)" }}>
-                        {p.entryCount} záznamů
-                      </span>
-                      {alreadyInv && (
-                        <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--green)", padding: "0.15rem 0.5rem", borderRadius: "12px", background: "rgba(16,185,129,0.12)" }}>
-                          ✓ Vyfakturováno
+                  {/* ── Top row: name + nevyfakturováno badge ── */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
+                    <div>
+                      <span style={{ fontWeight: 700, fontSize: "1.05rem" }}>{p.name}</span>
+                      {p.thisMonthHours > 0 && (
+                        <span style={{ marginLeft: "0.6rem", fontSize: "0.72rem", color: "var(--muted)", padding: "0.15rem 0.5rem", borderRadius: "12px", background: "rgba(255,255,255,0.07)" }}>
+                          {p.entryCount} záznamů tento měsíc
                         </span>
                       )}
                     </div>
 
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-                      {/* Hours badge */}
-                      <span style={{ fontSize: "1.15rem", fontWeight: 800, color: alreadyInv ? "var(--muted)" : "var(--text)" }}>
-                        {formatHours(p.totalHours)}
+                    {/* Nevyfakturováno */}
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: "0.68rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.2rem" }}>
+                        Nevyfakturováno
+                      </div>
+                      <div style={{ fontSize: "1.4rem", fontWeight: 800, color: p.nevyfakturováno > 0 ? "var(--accent)" : "var(--muted)" }}>
+                        {p.rate > 0 ? formatCurrency(p.nevyfakturováno, p.currency) : "—"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ── This month row ── */}
+                  {p.thisMonthHours > 0 && (
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.9rem", padding: "0.6rem 0.9rem", borderRadius: "8px", background: "rgba(99,102,241,0.07)", border: "1px solid rgba(99,102,241,0.15)" }}>
+                      <span style={{ fontSize: "0.72rem", color: "var(--accent-2)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                        {monthLabel(month)}
                       </span>
-                      <span style={{ color: "var(--muted)", fontSize: "0.85rem" }}>×</span>
-
-                      {/* Rate input */}
-                      <input
-                        type="number"
-                        value={inp.rate}
-                        onChange={(e) => handleRateChange(p.id, "rate", e.target.value)}
-                        placeholder="sazba"
-                        min="0"
-                        step="any"
-                        style={{
-                          width: "90px",
-                          padding: "0.3rem 0.5rem",
-                          borderRadius: "6px",
-                          border: `1px solid ${isDirty ? "var(--accent)" : "var(--border)"}`,
-                          background: "var(--surface-2)",
-                          color: "var(--text)",
-                          fontSize: "0.875rem",
-                          textAlign: "right",
-                        }}
-                      />
-
-                      {/* Currency select */}
-                      <select
-                        value={inp.currency}
-                        onChange={(e) => handleRateChange(p.id, "currency", e.target.value)}
-                        style={{
-                          padding: "0.3rem 0.5rem",
-                          borderRadius: "6px",
-                          border: `1px solid ${isDirty ? "var(--accent)" : "var(--border)"}`,
-                          background: "var(--surface-2)",
-                          color: "var(--text)",
-                          fontSize: "0.875rem",
-                        }}
-                      >
-                        {CURRENCIES.map((c) => <option key={c.value} value={c.value}>{c.value}</option>)}
-                      </select>
-
-                      <span style={{ color: "var(--muted)", fontSize: "0.85rem" }}>/h</span>
-
-                      {/* Save rate button (only when dirty) */}
-                      {isDirty && (
-                        <button className="btn-ghost" onClick={() => saveRate(p.id, p.name)} style={{ fontSize: "0.75rem", padding: "0.3rem 0.6rem", color: "var(--accent)" }}>
-                          Uložit sazbu
-                        </button>
-                      )}
-
-                      {/* Computed amount */}
-                      {amount !== null && amount > 0 && (
+                      <span style={{ fontSize: "0.9rem", fontWeight: 700, color: "var(--text)" }}>
+                        {formatHours(p.thisMonthHours)}
+                      </span>
+                      {p.rate > 0 && thisMonthAmount !== null && (
                         <>
-                          <span style={{ color: "var(--muted)" }}>= </span>
-                          <span style={{ fontWeight: 800, fontSize: "1.05rem", color: alreadyInv ? "var(--muted)" : "var(--accent)" }}>
-                            {formatCurrency(amount, inp.currency)}
-                          </span>
+                          <span style={{ color: "var(--muted)", fontSize: "0.85rem" }}>×</span>
+                          <span style={{ fontSize: "0.85rem", color: "var(--muted)" }}>{formatCurrency(p.rate, p.currency)}/h</span>
+                          <span style={{ color: "var(--muted)", fontSize: "0.85rem" }}>=</span>
+                          <span style={{ fontWeight: 700, color: "var(--text)" }}>{formatCurrency(thisMonthAmount, p.currency)}</span>
                         </>
                       )}
                     </div>
+                  )}
 
-                    {/* Already invoiced info */}
-                    {alreadyInv && (
-                      <div style={{ marginTop: "0.5rem", fontSize: "0.78rem", color: "var(--muted)" }}>
-                        Faktura: {formatHours(alreadyInv.hours)} → {formatCurrency(alreadyInv.amount, alreadyInv.currency)}
+                  {/* ── Stats row ── */}
+                  {p.hasRate && (
+                    <div style={{ display: "flex", gap: "1.5rem", marginBottom: "0.9rem", fontSize: "0.8rem", color: "var(--muted)" }}>
+                      <span>Celkem vyděláno: <strong style={{ color: "var(--text)" }}>{formatCurrency(p.totalEarned, p.currency)}</strong></span>
+                      <span>Vyfakturováno: <strong style={{ color: "var(--text)" }}>{formatCurrency(p.totalInvoiced, p.currency)}</strong></span>
+                      {p.currencyMismatch && (
+                        <span style={{ color: "var(--yellow)", fontSize: "0.72rem" }}>
+                          ⚠ Měna faktur se liší od aktuální sazby — historické faktury nejsou zahrnuty v zůstatku
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ── Settings row: rate + initial earnings ── */}
+                  <div style={{ display: "flex", alignItems: "flex-end", gap: "0.75rem", flexWrap: "wrap" }}>
+                    {/* Hourly rate */}
+                    <div>
+                      <div style={{ fontSize: "0.68rem", color: "var(--muted)", marginBottom: "0.25rem", fontWeight: 600 }}>Hodinová sazba</div>
+                      <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+                        <input
+                          type="number"
+                          value={inp.rate}
+                          onChange={(e) => handleRateChange(p.id, "rate", e.target.value)}
+                          placeholder="0"
+                          min="0"
+                          step="any"
+                          style={{ width: "90px", padding: "0.3rem 0.5rem", borderRadius: "6px", border: `1px solid ${isDirty ? "var(--accent)" : "var(--border)"}`, background: "var(--surface-2)", color: "var(--text)", fontSize: "0.875rem", textAlign: "right" }}
+                        />
+                        <select
+                          value={inp.currency}
+                          onChange={(e) => handleRateChange(p.id, "currency", e.target.value)}
+                          style={{ padding: "0.3rem 0.5rem", borderRadius: "6px", border: `1px solid ${isDirty ? "var(--accent)" : "var(--border)"}`, background: "var(--surface-2)", color: "var(--text)", fontSize: "0.875rem" }}
+                        >
+                          {CURRENCIES.map((c) => <option key={c.value} value={c.value}>{c.value}</option>)}
+                        </select>
+                        <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>/h</span>
                       </div>
-                    )}
-                  </div>
+                    </div>
 
-                  {/* Right: action button */}
-                  <div style={{ textAlign: "right" }}>
-                    {!alreadyInv ? (
+                    {/* Initial (historical) uninvoiced balance */}
+                    <div>
+                      <div style={{ fontSize: "0.68rem", color: "var(--muted)", marginBottom: "0.25rem", fontWeight: 600 }}>Počáteční nevyfakturováno</div>
+                      <input
+                        type="number"
+                        value={inp.initialEarnings}
+                        onChange={(e) => handleRateChange(p.id, "initialEarnings", e.target.value)}
+                        placeholder="0"
+                        min="0"
+                        step="any"
+                        title="Co jsi vydělal a ještě nevyfakturoval před začátkem sledování"
+                        style={{ width: "120px", padding: "0.3rem 0.5rem", borderRadius: "6px", border: `1px solid ${isDirty ? "var(--accent)" : "var(--border)"}`, background: "var(--surface-2)", color: "var(--text)", fontSize: "0.875rem", textAlign: "right" }}
+                      />
+                    </div>
+
+                    {isDirty && (
+                      <button className="btn-ghost" onClick={() => saveRate(p.id, p.name)} style={{ fontSize: "0.78rem", padding: "0.35rem 0.7rem", color: "var(--accent)", marginBottom: "1px" }}>
+                        Uložit nastavení
+                      </button>
+                    )}
+
+                    {/* Spacer + invoice button */}
+                    <div style={{ marginLeft: "auto" }}>
                       <button
                         className="btn-primary"
-                        onClick={() => openInvoiceModal(p)}
-                        disabled={!amount || amount <= 0}
+                        onClick={() => openInvoiceModal(p.id, p.name)}
+                        disabled={!p.hasRate || p.nevyfakturováno <= 0}
                         style={{ fontSize: "0.85rem", whiteSpace: "nowrap" }}
                       >
                         Vytvořit fakturu →
                       </button>
-                    ) : (
-                      <button
-                        className="btn-ghost"
-                        onClick={() => openInvoiceModal(p)}
-                        style={{ fontSize: "0.78rem", color: "var(--muted)" }}
-                      >
-                        + Znovu fakturovat
-                      </button>
-                    )}
+                    </div>
                   </div>
                 </div>
               );
@@ -489,17 +619,17 @@ export default function BillingPage() {
         )}
       </div>
 
-      {/* ── Manual receivables section ── */}
+      {/* ── Pohledávky section ── */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
         <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700 }}>Pohledávky</h2>
         <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
           {Object.entries(pendingByCurrency).map(([cur, total]) => (
             <span key={cur} style={{ fontSize: "0.85rem", color: "var(--yellow)", fontWeight: 700 }}>
-              {formatCurrency(total, cur)} nevyřízeno
+              {formatCurrency(total, cur)} čeká na úhradu
             </span>
           ))}
           <Link href="/receivables" style={{ fontSize: "0.8rem", padding: "0.35rem 0.75rem", borderRadius: "6px", background: "var(--accent)", color: "#fff", textDecoration: "none", fontWeight: 600 }}>
-            + Přidat
+            + Přidat ručně
           </Link>
         </div>
       </div>
@@ -507,7 +637,7 @@ export default function BillingPage() {
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
         {receivables.length === 0 ? (
           <p style={{ padding: "2rem", color: "var(--muted)", textAlign: "center", fontSize: "0.875rem" }}>
-            Zatím žádné pohledávky. Používej tlačítko &quot;Vytvořit fakturu&quot; výše nebo přidej ručně.
+            Zatím žádné pohledávky. Využij tlačítko &quot;Vytvořit fakturu&quot; výše.
           </p>
         ) : (
           <table>
@@ -576,18 +706,13 @@ export default function BillingPage() {
           onClose={() => setInvoiceModal(null)}
         >
           <form onSubmit={handleCreateInvoice} style={{ display: "flex", flexDirection: "column", gap: "1.1rem" }}>
-            {/* Summary */}
+            {/* Summary box */}
             <div style={{ padding: "1rem 1.2rem", borderRadius: "10px", background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)" }}>
-              <div style={{ fontSize: "0.75rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.4rem" }}>
-                Souhrn
+              <div style={{ fontSize: "0.72rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>
+                Nevyfakturovaný zůstatek
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
-                  {formatHours(invoiceModal.hours)} · {monthLabel(month)}
-                </span>
-                <span style={{ fontWeight: 800, fontSize: "1.3rem", color: "var(--accent)" }}>
-                  {formatCurrency(invoiceModal.amount, invoiceModal.currency)}
-                </span>
+              <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "var(--accent)" }}>
+                {formatCurrency(invoiceModal.nevyfakturováno, invoiceModal.currency)}
               </div>
             </div>
 
@@ -599,6 +724,25 @@ export default function BillingPage() {
               placeholder={`${invoiceModal.project.name} — ${monthLabel(month)}`}
               required
             />
+
+            {/* Amount — pre-filled, user can edit */}
+            <div>
+              <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.4rem", color: "var(--text-2)" }}>
+                Fakturovaná částka ({invoiceModal.currency}) *
+              </label>
+              <input
+                type="number"
+                name="amount"
+                value={invoiceForm.amount}
+                onChange={(e) => setInvoiceForm((f) => ({ ...f, amount: e.target.value }))}
+                min="0.01"
+                step="0.01"
+                required
+                placeholder="0"
+                style={{ width: "100%", padding: "0.55rem 0.75rem", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: "0.9rem" }}
+              />
+            </div>
+
             <FormField
               label="Datum splatnosti"
               name="dueDate"
