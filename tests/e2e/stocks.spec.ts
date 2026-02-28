@@ -51,4 +51,46 @@ test.describe("Stocks (/stocks)", () => {
     await page.waitForTimeout(1000);
     expect(errors).toHaveLength(0);
   });
+
+  // ── Edit feature ────────────────────────────────────────────────────────────
+  test("otevře edit modal s předvyplněnými hodnotami pro stocks", async ({ page }) => {
+    // Přidáme stock
+    await page.getByRole("button", { name: /add|přidat|\+/i }).first().click();
+    const tickerInput = page.locator("input[name='ticker'], input[name='symbol']").first();
+    if (await tickerInput.isVisible()) await tickerInput.fill("MSFT");
+    const sharesInput = page.locator("input[name='shares'], input[name='amount']").first();
+    if (await sharesInput.isVisible()) await sharesInput.fill("5");
+    await page.getByRole("button", { name: /save|uložit|add|submit/i }).last().click();
+    await expect(page.getByText("MSFT")).toBeVisible({ timeout: 5000 });
+
+    // Edit
+    const editBtn = page.locator("button[title='Upravit'], button:has-text('✏️')").first();
+    await editBtn.click();
+
+    // Modal je otevřený s ticker předvyplněným
+    const ticker = page.locator("input[name='ticker']");
+    await expect(ticker).toBeVisible({ timeout: 3000 });
+    await expect(ticker).toHaveValue("MSFT");
+  });
+
+  test("upraví počet shares u existujícího holdingu", async ({ page }) => {
+    // Přidáme holding
+    await page.getByRole("button", { name: /add|přidat|\+/i }).first().click();
+    const tickerInput = page.locator("input[name='ticker'], input[name='symbol']").first();
+    if (await tickerInput.isVisible()) await tickerInput.fill("GOOG");
+    const sharesInput = page.locator("input[name='shares'], input[name='amount']").first();
+    if (await sharesInput.isVisible()) await sharesInput.fill("3");
+    await page.getByRole("button", { name: /save|uložit|add|submit/i }).last().click();
+    await expect(page.getByText("GOOG")).toBeVisible({ timeout: 5000 });
+
+    // Editujeme počet shares
+    await page.locator("button[title='Upravit'], button:has-text('✏️')").first().click();
+    const shares = page.locator("input[name='shares']");
+    await shares.clear();
+    await shares.fill("10");
+    await page.getByRole("button", { name: /save|uložit|update|upravit|submit/i }).last().click();
+
+    // Nová hodnota shares
+    await expect(page.getByText(/10/).first()).toBeVisible({ timeout: 5000 });
+  });
 });

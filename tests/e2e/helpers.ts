@@ -80,6 +80,36 @@ export async function mockStockPricesApi(page: Page) {
 }
 
 /**
+ * Mock Next.js API route pro Clockify (GET /api/clockify)
+ */
+export async function mockClockifyApi(page: Page, projects = [
+  { id: "proj-001", name: "Client Alpha", totalHours: 12.5, entryCount: 8 },
+  { id: "proj-002", name: "Client Beta",  totalHours: 7.0,  entryCount: 4 },
+]) {
+  const month = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+  await page.route("**/api/clockify**", (route: Route) => {
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ projects, month, fetchedAt: new Date().toISOString() }),
+    });
+  });
+}
+
+/**
+ * Mock Clockify API — vrátí 503 jako při chybějícím API klíči
+ */
+export async function mockClockifyApiMissing(page: Page) {
+  await page.route("**/api/clockify**", (route: Route) => {
+    route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ error: "CLOCKIFY_API_KEY není nastavený" }),
+    });
+  });
+}
+
+/**
  * Počká na hydrataci Next.js a Evolu (WASM worker)
  */
 export async function waitForApp(page: Page) {

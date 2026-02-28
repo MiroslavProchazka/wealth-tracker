@@ -79,4 +79,46 @@ test.describe("Crypto (/crypto)", () => {
     // Je to volitelná sekce — jen ověříme že stránka nenadhodí chybu
     await expect(page).toHaveURL("/crypto");
   });
+
+  // ── Edit feature ────────────────────────────────────────────────────────────
+  test("otevře edit modal s předvyplněnými hodnotami", async ({ page }) => {
+    // Nejprve přidáme holding
+    await page.getByRole("button", { name: /add|přidat|\+/i }).first().click();
+    await page.locator("input[name='symbol']").fill("ETH");
+    const nameInput = page.locator("input[name='name']");
+    if (await nameInput.isVisible()) await nameInput.fill("Ethereum");
+    await page.locator("input[name='amount']").fill("2");
+    await page.getByRole("button", { name: /save|uložit|add|submit/i }).last().click();
+    await expect(page.getByText("ETH")).toBeVisible({ timeout: 5000 });
+
+    // Klikneme na ✏️ edit tlačítko
+    const editBtn = page.locator("button[title='Upravit'], button:has-text('✏️')").first();
+    await editBtn.click();
+
+    // Modal se otevře s předvyplněnou hodnotou
+    const symbolInput = page.locator("input[name='symbol']");
+    await expect(symbolInput).toBeVisible({ timeout: 3000 });
+    await expect(symbolInput).toHaveValue("ETH");
+  });
+
+  test("upraví existing holding — uloží změnu", async ({ page }) => {
+    // Přidáme holding
+    await page.getByRole("button", { name: /add|přidat|\+/i }).first().click();
+    await page.locator("input[name='symbol']").fill("BTC");
+    const nameInput = page.locator("input[name='name']");
+    if (await nameInput.isVisible()) await nameInput.fill("Bitcoin");
+    await page.locator("input[name='amount']").fill("0.1");
+    await page.getByRole("button", { name: /save|uložit|add|submit/i }).last().click();
+    await expect(page.getByText("BTC")).toBeVisible({ timeout: 5000 });
+
+    // Editujeme
+    await page.locator("button[title='Upravit'], button:has-text('✏️')").first().click();
+    const amountInput = page.locator("input[name='amount']");
+    await amountInput.clear();
+    await amountInput.fill("0.25");
+    await page.getByRole("button", { name: /save|uložit|update|upravit|submit/i }).last().click();
+
+    // Nová hodnota se zobrazí
+    await expect(page.getByText(/0[,.]25/).first()).toBeVisible({ timeout: 5000 });
+  });
 });

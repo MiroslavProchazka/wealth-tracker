@@ -67,4 +67,52 @@ test.describe("Savings (/savings)", () => {
     );
     expect(parseInt(fontWeight)).toBeGreaterThanOrEqual(600);
   });
+
+  // ── Edit feature ────────────────────────────────────────────────────────────
+  test("otevře edit modal s předvyplněnými hodnotami spořicího účtu", async ({ page }) => {
+    // Přidáme účet
+    await page.getByRole("button", { name: /add|přidat|\+/i }).first().click();
+    const nameInput = page.locator("input[name='name']").first();
+    if (await nameInput.isVisible()) await nameInput.fill("Raiffeisen Spoření");
+    const balanceInput = page.locator("input[name='balance']").first();
+    if (await balanceInput.isVisible()) await balanceInput.fill("150000");
+    const rateInput = page.locator("input[name='interestRate']").first();
+    if (await rateInput.isVisible()) await rateInput.fill("4.0");
+    await page.getByRole("button", { name: /save|uložit|add|submit/i }).last().click();
+    await expect(page.getByText("Raiffeisen Spoření")).toBeVisible({ timeout: 5000 });
+
+    // Editujeme
+    const editBtn = page.locator("button[title='Upravit'], button:has-text('✏️')").first();
+    await editBtn.click();
+
+    // Modal je otevřen — název je předvyplněn
+    const nameField = page.locator("input[name='name']");
+    await expect(nameField).toBeVisible({ timeout: 3000 });
+    await expect(nameField).toHaveValue("Raiffeisen Spoření");
+  });
+
+  test("upraví zůstatek spořicího účtu", async ({ page }) => {
+    // Přidáme účet
+    await page.getByRole("button", { name: /add|přidat|\+/i }).first().click();
+    const nameInput = page.locator("input[name='name']").first();
+    if (await nameInput.isVisible()) await nameInput.fill("ČSOB Spořicí");
+    const bankInput = page.locator("input[name='bank']").first();
+    if (await bankInput.isVisible()) await bankInput.fill("ČSOB");
+    const balanceInput = page.locator("input[name='balance']").first();
+    if (await balanceInput.isVisible()) await balanceInput.fill("80000");
+    await page.getByRole("button", { name: /save|uložit|add|submit/i }).last().click();
+    await expect(page.getByText("ČSOB Spořicí")).toBeVisible({ timeout: 5000 });
+
+    // Editujeme zůstatek
+    await page.locator("button[title='Upravit'], button:has-text('✏️')").first().click();
+    const balField = page.locator("input[name='balance']");
+    if (await balField.isVisible()) {
+      await balField.clear();
+      await balField.fill("95000");
+    }
+    await page.getByRole("button", { name: /save|uložit|update|upravit|submit/i }).last().click();
+
+    // Účet stále viditelný po uložení
+    await expect(page.getByText("ČSOB Spořicí")).toBeVisible({ timeout: 5000 });
+  });
 });
