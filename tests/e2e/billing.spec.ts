@@ -4,13 +4,13 @@ import { waitForApp, mockClockifyApi, mockClockifyApiMissing } from "./helpers";
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 async function syncClockify(page: Parameters<typeof waitForApp>[0]) {
-  await page.getByRole("button", { name: /sync|clockify|↻/i }).first().click();
-  // Wait for loading to finish
-  await page.waitForFunction(
-    () => !document.querySelector("button[disabled]"),
-    { timeout: 6000 }
-  ).catch(() => {});
-  await page.waitForTimeout(400);
+  const syncBtn = page.getByRole("button", { name: /sync|clockify|↻/i }).first();
+  await syncBtn.click();
+  // Wait specifically for the sync button to become enabled again (loading → done).
+  // Do NOT use "no disabled button" — the ‹ › month-nav button on the current month
+  // is always disabled, so that condition would never resolve.
+  await expect(syncBtn).not.toBeDisabled({ timeout: 8000 });
+  await page.waitForTimeout(200);
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

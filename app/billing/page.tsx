@@ -71,22 +71,26 @@ export default function BillingPage() {
   // ── Evolu queries ───────────────────────────────────────────────────────────
   const ratesQ = useMemo(() => evolu.createQuery((db) =>
     db.selectFrom("clockifyProjectRate").selectAll()
-      .where("deleted", "is not", Evolu.sqliteTrue)
+      .where("isDeleted", "is not", Evolu.sqliteTrue)
+      .where("deleted",   "is not", Evolu.sqliteTrue)
   ), [evolu]);
 
   const monthlyEarningsQ = useMemo(() => evolu.createQuery((db) =>
     db.selectFrom("clockifyMonthlyEarnings").selectAll()
-      .where("deleted", "is not", Evolu.sqliteTrue)
+      .where("isDeleted", "is not", Evolu.sqliteTrue)
+      .where("deleted",   "is not", Evolu.sqliteTrue)
   ), [evolu]);
 
   const invoicedQ = useMemo(() => evolu.createQuery((db) =>
     db.selectFrom("clockifyInvoicedPeriod").selectAll()
-      .where("deleted", "is not", Evolu.sqliteTrue)
+      .where("isDeleted", "is not", Evolu.sqliteTrue)
+      .where("deleted",   "is not", Evolu.sqliteTrue)
   ), [evolu]);
 
   const receivablesQ = useMemo(() => evolu.createQuery((db) =>
     db.selectFrom("receivable").selectAll()
-      .where("deleted", "is not", Evolu.sqliteTrue)
+      .where("isDeleted", "is not", Evolu.sqliteTrue)
+      .where("deleted",   "is not", Evolu.sqliteTrue)
       .orderBy("createdAt", "desc")
   ), [evolu]);
 
@@ -136,12 +140,22 @@ export default function BillingPage() {
     return m;
   }, [monthlyEarnings]);
 
-  // ── Total invoiced per project ───────────────────────────────────────────────
+  // ── Total invoiced per project — keyed by projectId, per-currency sums ───────
+  // Summing across currencies would produce misleading numbers, so we only sum
+  // records whose currency matches the project's current currency setting.
+  // Records in a different currency (e.g. from a prior rate configuration) are
+  // excluded from the balance calculation; a currency mismatch is surfaced in the UI.
   const totalInvoicedByProject = useMemo(() => {
-    const m: Record<string, number> = {};
+    const m: Record<string, { amount: number; currency: string }> = {};
     for (const inv of invoiced) {
       const pid = inv.clockifyProjectId as string;
-      m[pid] = (m[pid] ?? 0) + (inv.amount as number);
+      const cur = inv.currency as string;
+      if (!m[pid]) {
+        m[pid] = { amount: inv.amount as number, currency: cur };
+      } else if (m[pid].currency === cur) {
+        m[pid].amount += inv.amount as number;
+      }
+      // Different currency — intentionally skipped; balance stays conservative
     }
     return m;
   }, [invoiced]);
@@ -286,9 +300,12 @@ export default function BillingPage() {
     const rateInfo = rateMap[projectId];
     const rate     = rateInfo?.hourlyRate ?? 0;
     const currency = rateInfo?.currency ?? "CZK";
-    const totalHours   = totalHoursByProject[projectId] ?? 0;
-    const totalEarned  = (rateInfo?.initialEarnings ?? 0) + totalHours * rate;
-    const totalInvoiced = totalInvoicedByProject[projectId] ?? 0;
+    const totalHours    = totalHoursByProject[projectId] ?? 0;
+    const totalEarned   = (rateInfo?.initialEarnings ?? 0) + totalHours * rate;
+    const invoicedEntry = totalInvoicedByProject[projectId];
+    // Only subtract invoiced amount when currencies match; otherwise keep full balance
+    const totalInvoiced = (invoicedEntry && invoicedEntry.currency === currency)
+      ? invoicedEntry.amount : 0;
     const nev = Math.max(0, totalEarned - totalInvoiced);
 
     setInvoiceModal({
@@ -365,9 +382,10 @@ export default function BillingPage() {
     evolu.update("receivable", { id: id as never, deleted: Evolu.sqliteTrue } as never);
   }
 
-  // Group pending amounts by currency
+  // Outstanding receivables = INVOICED + OVERDUE (invoice sent, payment pending).
+  // PENDING receivables are not yet invoiced — they're represented by "nevyfakturováno" above.
   const pendingByCurrency = receivables
-    .filter((r) => String(r.status) !== "PAID")
+    .filter((r) => ["INVOICED", "OVERDUE"].includes(String(r.status)))
     .reduce<Record<string, number>>((acc, r) => {
       const cur = String(r.currency ?? "CZK");
       acc[cur] = (acc[cur] ?? 0) + (r.amount as number);
@@ -398,10 +416,13 @@ export default function BillingPage() {
       const initialEarnings = rateInfo?.initialEarnings ?? 0;
       const totalHours      = totalHoursByProject[id] ?? 0;
       const totalEarned     = initialEarnings + totalHours * rate;
-      const totalInvoiced   = totalInvoicedByProject[id] ?? 0;
+      const invoicedEntry   = totalInvoicedByProject[id];
+      const totalInvoiced   = (invoicedEntry && invoicedEntry.currency === currency)
+        ? invoicedEntry.amount : 0;
+      const currencyMismatch = !!invoicedEntry && invoicedEntry.currency !== currency;
       const nevyfakturováno = Math.max(0, totalEarned - totalInvoiced);
 
-      return { id, name, thisMonthHours, entryCount, rate, currency, initialEarnings, totalEarned, totalInvoiced, nevyfakturováno, hasRate: !!rateInfo };
+      return { id, name, thisMonthHours, entryCount, rate, currency, initialEarnings, totalEarned, totalInvoiced, nevyfakturováno, hasRate: !!rateInfo, currencyMismatch };
     }).sort((a, b) => b.nevyfakturováno - a.nevyfakturováno);
   }, [allProjectIds, projects, rateMap, totalHoursByProject, totalInvoicedByProject]);
 
@@ -524,6 +545,11 @@ export default function BillingPage() {
                     <div style={{ display: "flex", gap: "1.5rem", marginBottom: "0.9rem", fontSize: "0.8rem", color: "var(--muted)" }}>
                       <span>Celkem vyděláno: <strong style={{ color: "var(--text)" }}>{formatCurrency(p.totalEarned, p.currency)}</strong></span>
                       <span>Vyfakturováno: <strong style={{ color: "var(--text)" }}>{formatCurrency(p.totalInvoiced, p.currency)}</strong></span>
+                      {p.currencyMismatch && (
+                        <span style={{ color: "var(--yellow)", fontSize: "0.72rem" }}>
+                          ⚠ Měna faktur se liší od aktuální sazby — historické faktury nejsou zahrnuty v zůstatku
+                        </span>
+                      )}
                     </div>
                   )}
 
