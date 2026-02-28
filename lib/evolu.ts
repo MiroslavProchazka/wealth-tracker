@@ -100,6 +100,24 @@ export const Schema = {
     notes: Evolu.nullOr(Evolu.TrimmedString1000),
     deleted: Evolu.nullOr(Evolu.SqliteBoolean),
   },
+  // ── Billing / Clockify ───────────────────────────────────────────────────
+  clockifyProjectRate: {
+    id: Evolu.id("ClockifyProjectRate"),
+    clockifyProjectId: Evolu.NonEmptyTrimmedString100, // hex ID from Clockify
+    name: Evolu.NonEmptyTrimmedString100,              // project name (cached)
+    hourlyRate: Evolu.NonNegativeNumber,               // rate in chosen currency
+    currency: Evolu.NonEmptyTrimmedString100,          // CZK, EUR, USD …
+    deleted: Evolu.nullOr(Evolu.SqliteBoolean),
+  },
+  clockifyInvoicedPeriod: {
+    id: Evolu.id("ClockifyInvoicedPeriod"),
+    clockifyProjectId: Evolu.NonEmptyTrimmedString100,
+    yearMonth: Evolu.NonEmptyTrimmedString100,  // "2026-02"
+    hours: Evolu.NonNegativeNumber,
+    amount: Evolu.NonNegativeNumber,
+    currency: Evolu.NonEmptyTrimmedString100,
+    deleted: Evolu.nullOr(Evolu.SqliteBoolean),
+  },
   netWorthSnapshot: {
     id: Evolu.id("NetWorthSnapshot"),
     snapshotDate: Evolu.DateIso,
