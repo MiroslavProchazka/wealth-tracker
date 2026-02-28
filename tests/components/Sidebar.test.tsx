@@ -43,7 +43,7 @@ describe("Sidebar", () => {
       { label: "Crypto", href: "/crypto" },
       { label: "Stocks", href: "/stocks" },
       { label: "Property", href: "/property" },
-      { label: "Receivables", href: "/receivables" },
+      { label: "Billing", href: "/billing" },
       { label: "Savings", href: "/savings" },
       { label: "Bank Accounts", href: "/accounts" },
       { label: "Goals", href: "/goals" },
