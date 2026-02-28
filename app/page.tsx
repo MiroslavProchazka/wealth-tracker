@@ -5,6 +5,7 @@ import * as Evolu from "@evolu/common";
 import { useQuery } from "@evolu/react";
 import { useEvolu } from "@/lib/evolu";
 import { formatCurrency } from "@/lib/currencies";
+import { computeUninvoicedBalance } from "@/lib/clockifyBalance";
 import StatCard from "@/components/StatCard";
 import Link from "next/link";
 
@@ -132,41 +133,27 @@ export default function Dashboard() {
   const savingsValue     = savings.reduce((s, sv) => s + (sv.balance as number), 0);
   const bankValue        = accounts.reduce((s, a) => s + (a.balance as number), 0);
 
-  // Unfactured (nevyfakturováno): total earned minus total invoiced across all Clockify projects
-  const unfacturedValue = (() => {
-    const rateMap: Record<string, { hourlyRate: number; currency: string; initialEarnings: number }> = {};
-    for (const r of clockifyRates) {
-      rateMap[r.clockifyProjectId as string] = {
-        hourlyRate:      r.hourlyRate as number,
-        currency:        r.currency as string,
-        initialEarnings: (r.initialEarnings as number | null) ?? 0,
-      };
-    }
-    const totalHoursMap: Record<string, number> = {};
-    for (const e of clockifyEarnings) {
-      const pid = e.clockifyProjectId as string;
-      totalHoursMap[pid] = (totalHoursMap[pid] ?? 0) + (e.hours as number);
-    }
-    const totalInvoicedMap: Record<string, { amount: number; currency: string }> = {};
-    for (const inv of clockifyInvoiced) {
-      const pid = inv.clockifyProjectId as string;
-      const cur = inv.currency as string;
-      if (!totalInvoicedMap[pid]) {
-        totalInvoicedMap[pid] = { amount: inv.amount as number, currency: cur };
-      } else if (totalInvoicedMap[pid].currency === cur) {
-        totalInvoicedMap[pid].amount += inv.amount as number;
-      }
-    }
-    return Object.keys(rateMap).reduce((sum, pid) => {
-      const rate = rateMap[pid];
-      const totalEarned = rate.initialEarnings + (totalHoursMap[pid] ?? 0) * rate.hourlyRate;
-      const invoicedEntry = totalInvoicedMap[pid];
-      const totalInvoiced = (invoicedEntry && invoicedEntry.currency === rate.currency) ? invoicedEntry.amount : 0;
-      return sum + Math.max(0, totalEarned - totalInvoiced);
-    }, 0);
-  })();
+  // Uninvoiced (nevyfakturováno): earned minus invoiced, CZK projects only.
+  // Non-CZK projects are excluded to avoid mixing currencies in a CZK-denominated total.
+  const uninvoicedValue = useMemo(() => computeUninvoicedBalance(
+    clockifyRates.map((r) => ({
+      clockifyProjectId: r.clockifyProjectId as string,
+      hourlyRate:        r.hourlyRate as number,
+      currency:          r.currency as string,
+      initialEarnings:   (r.initialEarnings as number | null) ?? 0,
+    })),
+    clockifyEarnings.map((e) => ({
+      clockifyProjectId: e.clockifyProjectId as string,
+      hours:             e.hours as number,
+    })),
+    clockifyInvoiced.map((i) => ({
+      clockifyProjectId: i.clockifyProjectId as string,
+      amount:            i.amount as number,
+      currency:          i.currency as string,
+    }))
+  ), [clockifyRates, clockifyEarnings, clockifyInvoiced]);
 
-  const totalAssets      = cryptoValue + stocksValue + propertyValue + receivablesValue + savingsValue + bankValue + unfacturedValue;
+  const totalAssets      = cryptoValue + stocksValue + propertyValue + receivablesValue + savingsValue + bankValue + uninvoicedValue;
   const totalLiabilities = mortgageDebt;
   const netWorth         = totalAssets - totalLiabilities;
   const prevSnapshot     = snapshots[1];
@@ -179,7 +166,7 @@ export default function Dashboard() {
     { label: "Stocks",           value: stocksValue,       color: "#f59e0b", href: "/stocks" },
     { label: "Crypto",           value: cryptoValue,       color: "#f97316", href: "/crypto" },
     { label: "Receivables",      value: receivablesValue,  color: "#06b6d4", href: "/receivables" },
-    { label: "Nevyfakturováno",  value: unfacturedValue,   color: "#a855f7", href: "/billing" },
+    { label: "Nevyfakturováno",  value: uninvoicedValue,   color: "#a855f7", href: "/billing" },
   ].filter((i) => i.value > 0);
   const total = allocationItems.reduce((s, i) => s + i.value, 0) || 1;
 
@@ -204,8 +191,8 @@ export default function Dashboard() {
         <StatCard label="Total Liabilities" value={formatCurrency(totalLiabilities, "CZK")} accent="var(--red)"   icon="↓" />
         <StatCard label="Savings"           value={formatCurrency(savingsValue, "CZK")}     accent="var(--green)" icon="🏦" />
         <StatCard label="Receivables"       value={formatCurrency(receivablesValue, "CZK")} sub={`${receivables.filter((r) => String(r.status) !== "PAID").length} pending`} accent="var(--yellow)" icon="💼" />
-        {unfacturedValue > 0 && (
-          <StatCard label="Nevyfakturováno" value={formatCurrency(unfacturedValue, "CZK")} sub="billing" accent="var(--accent)" icon="⏱" />
+        {uninvoicedValue > 0 && (
+          <StatCard label="Nevyfakturováno" value={formatCurrency(uninvoicedValue, "CZK")} sub="billing" accent="var(--accent)" icon="⏱" />
         )}
       </div>
 
