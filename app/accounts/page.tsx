@@ -12,6 +12,7 @@ const EMPTY = { name: "", bank: "", balance: "", currency: "CZK", iban: "", note
 export default function AccountsPage() {
   const evolu = useEvolu();
   const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ ...EMPTY });
   const [saving, setSaving] = useState(false);
 
@@ -31,17 +32,37 @@ export default function AccountsPage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    const result = evolu.insert("bankAccount", {
+    const fields = {
       name: form.name.trim(),
       bank: form.bank.trim(),
       balance: parseFloat(form.balance as string),
       currency: form.currency,
       iban: form.iban.trim() || null,
       notes: form.notes.trim() || null,
-      deleted: Evolu.sqliteFalse,
-    } as never);
-    setSaving(false);
-    if (result.ok) { setForm({ ...EMPTY }); setShowModal(false); }
+    };
+    if (editingId) {
+      evolu.update("bankAccount", { id: editingId as never, ...fields } as never);
+      setSaving(false);
+      setForm({ ...EMPTY }); setEditingId(null); setShowModal(false);
+    } else {
+      const result = evolu.insert("bankAccount", { ...fields, deleted: Evolu.sqliteFalse } as never);
+      setSaving(false);
+      if (result.ok) { setForm({ ...EMPTY }); setShowModal(false); }
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function handleStartEdit(item: any) {
+    setForm({
+      name: item.name as string,
+      bank: item.bank as string,
+      balance: String(item.balance as number),
+      currency: item.currency as string,
+      iban: (item.iban as string) ?? "",
+      notes: (item.notes as string) ?? "",
+    });
+    setEditingId(item.id as string);
+    setShowModal(true);
   }
 
   function handleDelete(id: string) {
@@ -90,7 +111,12 @@ export default function AccountsPage() {
                   <td style={{ fontWeight: 700, color: (item.balance as number) >= 0 ? "var(--green)" : "var(--red)" }}>{formatCurrency(item.balance as number, item.currency as string)}</td>
                   <td style={{ color: "var(--muted)", fontSize: "0.75rem", fontFamily: "monospace" }}>{(item.iban as string) ?? "—"}</td>
                   <td style={{ color: "var(--muted)", fontSize: "0.8rem" }}>{(item.notes as string) ?? "—"}</td>
-                  <td><button className="btn-danger" onClick={() => handleDelete(item.id as string)}>Delete</button></td>
+                  <td>
+                    <div style={{ display: "flex", gap: "0.4rem" }}>
+                      <button className="btn-ghost" onClick={() => handleStartEdit(item)} style={{ fontSize: "0.8rem" }}>✏️</button>
+                      <button className="btn-danger" onClick={() => handleDelete(item.id as string)}>Delete</button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -99,7 +125,7 @@ export default function AccountsPage() {
       </div>
 
       {showModal && (
-        <Modal title="Add Bank Account" onClose={() => setShowModal(false)}>
+        <Modal title={editingId ? "Upravit bankovní účet" : "Add Bank Account"} onClose={() => { setShowModal(false); setForm({ ...EMPTY }); setEditingId(null); }}>
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
             <FormField label="Account Name *" name="name" value={form.name} onChange={handleChange} placeholder="e.g. Revolut EUR" required />
             <FormField label="Bank / Provider *" name="bank" value={form.bank} onChange={handleChange} placeholder="e.g. Revolut" required />
@@ -110,8 +136,8 @@ export default function AccountsPage() {
             <FormField label="IBAN (optional)" name="iban" value={form.iban} onChange={handleChange} placeholder="CZ65 0800 0000 0012 3456 7890" />
             <FormField label="Notes" name="notes" type="textarea" value={form.notes} onChange={handleChange} placeholder="Any notes…" />
             <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", marginTop: "0.5rem" }}>
-              <button type="button" className="btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>
-              <button type="submit" className="btn-primary" disabled={saving}>{saving ? "Saving…" : "Add Account"}</button>
+              <button type="button" className="btn-ghost" onClick={() => { setShowModal(false); setForm({ ...EMPTY }); setEditingId(null); }}>Cancel</button>
+              <button type="submit" className="btn-primary" disabled={saving}>{saving ? "Saving…" : editingId ? "Uložit změny" : "Add Account"}</button>
             </div>
           </form>
         </Modal>

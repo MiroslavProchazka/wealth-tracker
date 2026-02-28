@@ -148,6 +148,7 @@ export default function StocksPage() {
 
   // Form & UI state
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [searchResults, setSearchResults] = useState<{ symbol: string; name: string; exchange: string; quoteType: string }[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -299,18 +300,50 @@ export default function StocksPage() {
   // ── CRUD ─────────────────────────────────────────────────────────────────
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const result = evolu.insert("stockHolding", {
-      ticker: form.ticker.trim(),
-      name: form.name.trim(),
-      shares: parseFloat(form.shares),
-      currency: form.currency,
-      buyPrice: form.buyPrice ? parseFloat(form.buyPrice) : null,
-      exchange: form.exchange.trim() || null,
-      sector: form.sector.trim() || null,
-      notes: form.notes.trim() || null,
-      deleted: Evolu.sqliteFalse,
-    } as never);
-    if (result.ok) { setForm(emptyForm); setShowAddModal(false); setSearchResults([]); }
+    if (editingId) {
+      evolu.update("stockHolding", {
+        id: editingId as never,
+        ticker: form.ticker.trim(),
+        name: form.name.trim(),
+        shares: parseFloat(form.shares),
+        currency: form.currency,
+        buyPrice: form.buyPrice ? parseFloat(form.buyPrice) : null,
+        exchange: form.exchange.trim() || null,
+        sector: form.sector.trim() || null,
+        notes: form.notes.trim() || null,
+      } as never);
+      setForm(emptyForm); setEditingId(null); setShowAddModal(false); setSearchResults([]);
+    } else {
+      const result = evolu.insert("stockHolding", {
+        ticker: form.ticker.trim(),
+        name: form.name.trim(),
+        shares: parseFloat(form.shares),
+        currency: form.currency,
+        buyPrice: form.buyPrice ? parseFloat(form.buyPrice) : null,
+        exchange: form.exchange.trim() || null,
+        sector: form.sector.trim() || null,
+        notes: form.notes.trim() || null,
+        deleted: Evolu.sqliteFalse,
+      } as never);
+      if (result.ok) { setForm(emptyForm); setShowAddModal(false); setSearchResults([]); }
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function handleStartEdit(h: any) {
+    setForm({
+      ticker: h.ticker as string,
+      name: h.name as string,
+      shares: String(h.shares as number),
+      currency: h.currency as string,
+      buyPrice: h.buyPrice != null ? String(h.buyPrice as number) : "",
+      exchange: (h.exchange as string) ?? "",
+      sector: (h.sector as string) ?? "",
+      notes: (h.notes as string) ?? "",
+    });
+    setEditingId(h.id as string);
+    setSearchResults([]);
+    setShowAddModal(true);
   }
 
   function handleDelete(id: string) {
@@ -636,6 +669,7 @@ export default function StocksPage() {
                           title="Historický chart"
                           style={{ background: "none", border: "1px solid var(--card-border)", borderRadius: "6px", padding: "0.3rem 0.5rem", cursor: "pointer", color: "var(--muted)", fontSize: "0.8rem" }}
                         >📈</button>
+                        <button className="btn-ghost" onClick={() => handleStartEdit(h)} title="Upravit" style={{ padding: "0.3rem 0.5rem", fontSize: "0.8rem" }}>✏️</button>
                         <button className="btn-danger" onClick={() => handleDelete(h.id as string)}>✕</button>
                       </div>
                     </td>
@@ -798,9 +832,9 @@ export default function StocksPage() {
         </Modal>
       )}
 
-      {/* ── Add Holding modal ── */}
+      {/* ── Add / Edit Holding modal ── */}
       {showAddModal && (
-        <Modal title="Přidat Stock / ETF" onClose={() => { setShowAddModal(false); setForm(emptyForm); setSearchResults([]); }}>
+        <Modal title={editingId ? "Upravit Stock / ETF" : "Přidat Stock / ETF"} onClose={() => { setShowAddModal(false); setForm(emptyForm); setEditingId(null); setSearchResults([]); }}>
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
 
             {/* Ticker with autocomplete */}
@@ -893,8 +927,8 @@ export default function StocksPage() {
             })()}
 
             <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", marginTop: "0.5rem" }}>
-              <button type="button" className="btn-ghost" onClick={() => { setShowAddModal(false); setForm(emptyForm); setSearchResults([]); }}>Zrušit</button>
-              <button type="submit" className="btn-primary">Přidat</button>
+              <button type="button" className="btn-ghost" onClick={() => { setShowAddModal(false); setForm(emptyForm); setEditingId(null); setSearchResults([]); }}>Zrušit</button>
+              <button type="submit" className="btn-primary">{editingId ? "Uložit změny" : "Přidat"}</button>
             </div>
           </form>
         </Modal>
