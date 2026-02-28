@@ -238,19 +238,23 @@ export default function BillingPage() {
       .catch(() => {});
   }, []);
 
-  // Debounced subject search (fires only while Fakturoid section is open)
+  // Debounced subject search with AbortController — cancels stale in-flight
+  // requests so out-of-order responses can never overwrite newer results.
   useEffect(() => {
     if (!sendToFakturoid || !fakturoidReady || !subjectSearch) {
       setSubjectResults([]);
       return;
     }
+    const controller = new AbortController();
     const timer = setTimeout(() => {
-      fetch(`/api/fakturoid/subjects?query=${encodeURIComponent(subjectSearch)}`)
+      fetch(`/api/fakturoid/subjects?query=${encodeURIComponent(subjectSearch)}`, {
+        signal: controller.signal,
+      })
         .then((r) => r.json())
         .then((d) => setSubjectResults(d.subjects ?? []))
-        .catch(() => setSubjectResults([]));
+        .catch((e) => { if (e.name !== "AbortError") setSubjectResults([]); });
     }, 400);
-    return () => clearTimeout(timer);
+    return () => { clearTimeout(timer); controller.abort(); };
   }, [subjectSearch, sendToFakturoid, fakturoidReady]);
 
   // ── Rate editing (local inline state) ──────────────────────────────────────

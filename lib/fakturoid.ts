@@ -6,7 +6,8 @@
  *   FAKTUROID_CLIENT_ID      – OAuth client ID
  *   FAKTUROID_CLIENT_SECRET  – OAuth client secret
  *   FAKTUROID_SLUG           – account slug (optional; auto-detected if omitted)
- *   FAKTUROID_USER_AGENT     – User-Agent header (optional; required by Fakturoid)
+ *   FAKTUROID_USER_AGENT     – User-Agent header (strongly recommended by Fakturoid;
+ *                              format: "AppName (contact@example.com)")
  */
 
 const BASE = "https://app.fakturoid.cz";
@@ -14,11 +15,19 @@ const BASE = "https://app.fakturoid.cz";
 // In-process caches — survive warm instances, reset on cold starts
 let tokenCache: { token: string; expiresAt: number } | null = null;
 let slugCache: string | null = null;
+// Deduplicates concurrent token-refresh calls so only one goes to the OAuth endpoint
+let refreshPromise: Promise<string> | null = null;
 
 function userAgent(): string {
-  return (
-    process.env.FAKTUROID_USER_AGENT ?? "WealthTracker (admin@example.com)"
-  );
+  const ua = process.env.FAKTUROID_USER_AGENT;
+  if (!ua) {
+    console.warn(
+      "[fakturoid] FAKTUROID_USER_AGENT is not set. " +
+        "Fakturoid requires a real contact email in the User-Agent header. " +
+        'Set it to e.g. "WealthTracker (you@example.com)".'
+    );
+  }
+  return ua ?? "WealthTracker (admin@example.com)";
 }
 
 function ensureCredentials() {
@@ -37,41 +46,57 @@ export async function getToken(): Promise<string> {
   if (tokenCache && Date.now() < tokenCache.expiresAt - 60_000)
     return tokenCache.token;
 
-  const { clientId, clientSecret } = ensureCredentials();
-  const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString(
-    "base64"
-  );
+  // Deduplicate concurrent refreshes — all callers await the same promise
+  if (refreshPromise) return refreshPromise;
 
-  const res = await fetch(`${BASE}/oauth/token`, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${basicAuth}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-      "User-Agent": userAgent(),
-    },
-    body: "grant_type=client_credentials",
-    cache: "no-store",
-  });
+  refreshPromise = (async () => {
+    try {
+      const { clientId, clientSecret } = ensureCredentials();
+      const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString(
+        "base64"
+      );
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Fakturoid auth HTTP ${res.status}: ${text}`);
-  }
+      const res = await fetch(`${BASE}/oauth/token`, {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${basicAuth}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+          "User-Agent": userAgent(),
+        },
+        body: "grant_type=client_credentials",
+        cache: "no-store",
+      });
 
-  const data = (await res.json()) as {
-    access_token: string;
-    expires_in: number;
-  };
-  tokenCache = {
-    token: data.access_token,
-    expiresAt: Date.now() + data.expires_in * 1000,
-  };
-  return tokenCache.token;
+      if (!res.ok) {
+        const raw = await res.text();
+        console.error(`[fakturoid] token refresh failed HTTP ${res.status}`, raw);
+        throw new Error(`Fakturoid auth selhal (HTTP ${res.status})`);
+      }
+
+      const data = (await res.json()) as {
+        access_token: string;
+        expires_in: number;
+      };
+      tokenCache = {
+        token: data.access_token,
+        expiresAt: Date.now() + data.expires_in * 1000,
+      };
+      return tokenCache.token;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
 }
 
 // ── Account slug ──────────────────────────────────────────────────────────────
 
 export async function getSlug(): Promise<string> {
+  // Validate credentials up-front so /api/fakturoid returns 503 immediately
+  // when env vars are missing, even if FAKTUROID_SLUG is set.
+  ensureCredentials();
+
   if (process.env.FAKTUROID_SLUG) return process.env.FAKTUROID_SLUG;
   if (slugCache) return slugCache;
 
@@ -100,11 +125,20 @@ async function rawFetch(path: string, init?: RequestInit): Promise<Response> {
   });
 }
 
+// Builds a safe, short error message for the browser.
+// Logs the full upstream response server-side to avoid leaking sensitive data.
+function safeApiError(method: string, path: string, status: number, raw: string): Error {
+  console.error(`[fakturoid] ${method} ${path} → HTTP ${status}`, raw);
+  // Surface a brief, readable hint from the response (first 200 chars) without
+  // forwarding potentially large or sensitive payloads to the browser.
+  const hint = raw.slice(0, 200).replace(/\n/g, " ").trim();
+  return new Error(`Fakturoid ${method} selhal (HTTP ${status})${hint ? `: ${hint}` : ""}`);
+}
+
 export async function apiGet<T>(path: string): Promise<T> {
   const res = await rawFetch(path);
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Fakturoid GET ${path} → HTTP ${res.status}: ${text}`);
+    throw safeApiError("GET", path, res.status, await res.text());
   }
   return res.json() as Promise<T>;
 }
@@ -118,8 +152,7 @@ export async function apiPost<T>(
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Fakturoid POST ${path} → HTTP ${res.status}: ${text}`);
+    throw safeApiError("POST", path, res.status, await res.text());
   }
   const data = (await res.json()) as T;
   return { data, location: res.headers.get("location") };

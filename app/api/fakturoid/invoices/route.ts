@@ -11,7 +11,8 @@ import {
 // Returns the most recent invoices from the Fakturoid account.
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const page = searchParams.get("page") ?? "1";
+  // Parse as integer to prevent query-parameter injection
+  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
 
   try {
     const slug = await getSlug();
