@@ -103,12 +103,15 @@ export default function BillingPage() {
     return m;
   }, [rates]);
 
-  // ── Invoiced map: `projectId:yearMonth` → { hours, amount, currency } ──────
+  // ── Invoiced map: `projectId:yearMonth` → { invId, hours, amount, currency }
+  // invId is stored so we can UPDATE the record instead of inserting a duplicate
+  // when the user clicks "+ Znovu fakturovat".
   const invoicedMap = useMemo(() => {
-    const m: Record<string, { hours: number; amount: number; currency: string }> = {};
+    const m: Record<string, { invId: string; hours: number; amount: number; currency: string }> = {};
     for (const inv of invoiced) {
       const key = `${inv.clockifyProjectId as string}:${inv.yearMonth as string}`;
       m[key] = {
+        invId:    inv.id as string,
         hours:    inv.hours as number,
         amount:   inv.amount as number,
         currency: inv.currency as string,
@@ -122,18 +125,24 @@ export default function BillingPage() {
     setLoading(true);
     setError(null);
     setNoApiKey(false);
+    // Clear previous month's data immediately so stale projects can't be
+    // accidentally invoiced against the wrong period.
+    setProjects([]);
+    setFetchedAt(null);
     try {
       const res  = await fetch(`/api/clockify?month=${month}`);
       const data = await res.json();
       if (!res.ok) {
         if (res.status === 503) { setNoApiKey(true); }
         else { setError(data.error ?? "Chyba při načítání z Clockify"); }
+        // projects / fetchedAt stay cleared
         return;
       }
       setProjects(data.projects ?? []);
       setFetchedAt(data.fetchedAt ?? null);
     } catch {
       setError("Nelze se připojit k Clockify API");
+      // projects / fetchedAt stay cleared
     } finally {
       setLoading(false);
     }
@@ -152,10 +161,15 @@ export default function BillingPage() {
   }
 
   function handleRateChange(projectId: string, field: "rate" | "currency", value: string) {
-    setRateInputs((prev) => ({
-      ...prev,
-      [projectId]: { ...getRateInput(projectId), [field]: value },
-    }));
+    setRateInputs((prev) => {
+      // Use prev[projectId] (not getRateInput) to avoid reading stale state
+      // inside the updater — getRateInput reads rateInputs from the outer closure.
+      const current = prev[projectId] ?? (() => {
+        const ex = rateMap[projectId];
+        return { rate: ex ? String(ex.hourlyRate) : "", currency: ex?.currency ?? "CZK" };
+      })();
+      return { ...prev, [projectId]: { ...current, [field]: value } };
+    });
   }
 
   function saveRate(projectId: string, name: string) {
@@ -190,6 +204,7 @@ export default function BillingPage() {
     currency: string;
   } | null>(null);
   const [invoiceForm, setInvoiceForm] = useState({ description: "", dueDate: "" });
+  const [invoiceError, setInvoiceError] = useState<string | null>(null);
 
   function openInvoiceModal(p: ClockifyProject) {
     const inp = getRateInput(p.id);
@@ -198,16 +213,30 @@ export default function BillingPage() {
     setInvoiceModal({ project: p, hours: p.totalHours, amount, currency: inp.currency });
     const defaultDesc = `${p.name} — ${monthLabel(month)}`;
     setInvoiceForm({ description: defaultDesc, dueDate: "" });
+    setInvoiceError(null);
   }
 
   function handleCreateInvoice(e: React.FormEvent) {
     e.preventDefault();
     if (!invoiceModal) return;
+
+    // ── Client-side validation ───────────────────────────────────────────────
+    const description = invoiceForm.description.trim();
+    if (!description) {
+      setInvoiceError("Popis faktury je povinný");
+      return;
+    }
+    if (invoiceModal.amount <= 0) {
+      setInvoiceError("Výsledná částka musí být větší než 0 — nastav prosím hodinovou sazbu");
+      return;
+    }
+    setInvoiceError(null);
+
     const { project, hours, amount, currency } = invoiceModal;
 
     // 1. Insert receivable
     evolu.insert("receivable", {
-      description: invoiceForm.description.trim(),
+      description,
       client: project.name,
       amount,
       currency,
@@ -217,15 +246,27 @@ export default function BillingPage() {
       deleted: Evolu.sqliteFalse,
     } as never);
 
-    // 2. Mark period as invoiced
-    evolu.insert("clockifyInvoicedPeriod", {
-      clockifyProjectId: project.id,
-      yearMonth: month,
-      hours,
-      amount,
-      currency,
-      deleted: Evolu.sqliteFalse,
-    } as never);
+    // 2. Mark / update invoiced period.
+    //    Update existing record if one already exists for this project+month to avoid
+    //    duplicate rows ("+ Znovu fakturovat" path).
+    const existingInv = invoicedMap[`${project.id}:${month}`];
+    if (existingInv) {
+      evolu.update("clockifyInvoicedPeriod", {
+        id: existingInv.invId as never,
+        hours,
+        amount,
+        currency,
+      } as never);
+    } else {
+      evolu.insert("clockifyInvoicedPeriod", {
+        clockifyProjectId: project.id,
+        yearMonth: month,
+        hours,
+        amount,
+        currency,
+        deleted: Evolu.sqliteFalse,
+      } as never);
+    }
 
     // 3. Ensure rate is saved
     saveRate(project.id, project.name);
@@ -242,9 +283,14 @@ export default function BillingPage() {
     evolu.update("receivable", { id: id as never, deleted: Evolu.sqliteTrue } as never);
   }
 
-  const pendingTotal = receivables
+  // Group pending amounts by currency to avoid misleading cross-currency summation
+  const pendingByCurrency = receivables
     .filter((r) => String(r.status) !== "PAID")
-    .reduce((s, r) => s + (r.amount as number), 0);
+    .reduce<Record<string, number>>((acc, r) => {
+      const cur = String(r.currency ?? "CZK");
+      acc[cur] = (acc[cur] ?? 0) + (r.amount as number);
+      return acc;
+    }, {});
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -447,11 +493,11 @@ export default function BillingPage() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
         <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700 }}>Pohledávky</h2>
         <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
-          {pendingTotal > 0 && (
-            <span style={{ fontSize: "0.85rem", color: "var(--yellow)", fontWeight: 700 }}>
-              {formatCurrency(pendingTotal, "CZK")} nevyřízeno
+          {Object.entries(pendingByCurrency).map(([cur, total]) => (
+            <span key={cur} style={{ fontSize: "0.85rem", color: "var(--yellow)", fontWeight: 700 }}>
+              {formatCurrency(total, cur)} nevyřízeno
             </span>
-          )}
+          ))}
           <Link href="/receivables" style={{ fontSize: "0.8rem", padding: "0.35rem 0.75rem", borderRadius: "6px", background: "var(--accent)", color: "#fff", textDecoration: "none", fontWeight: 600 }}>
             + Přidat
           </Link>
@@ -560,6 +606,12 @@ export default function BillingPage() {
               value={invoiceForm.dueDate}
               onChange={(e) => setInvoiceForm((f) => ({ ...f, dueDate: e.target.value }))}
             />
+
+            {invoiceError && (
+              <div style={{ padding: "0.65rem 0.9rem", borderRadius: "8px", background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)", color: "var(--red)", fontSize: "0.85rem" }}>
+                ⚠ {invoiceError}
+              </div>
+            )}
 
             <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", marginTop: "0.5rem" }}>
               <button type="button" className="btn-ghost" onClick={() => setInvoiceModal(null)}>Zrušit</button>

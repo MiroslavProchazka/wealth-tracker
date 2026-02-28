@@ -25,7 +25,7 @@ let wsCache: { workspaceId: string; userId: string; fetchedAt: number } | null =
 
 async function getWorkspace() {
   if (wsCache && Date.now() - wsCache.fetchedAt < 60 * 60 * 1000) return wsCache;
-  const res = await fetch(`${BASE}/user`, { headers: clockifyHeaders() });
+  const res = await fetch(`${BASE}/user`, { headers: clockifyHeaders(), cache: "no-store" });
   if (!res.ok) throw new Error(`Clockify /user selhal: HTTP ${res.status}`);
   const user = await res.json() as { id: string; defaultWorkspace: string };
   wsCache = { workspaceId: user.defaultWorkspace, userId: user.id, fetchedAt: Date.now() };
@@ -36,28 +36,38 @@ async function getWorkspace() {
 // Returns { projects: [{ id, name, totalHours, entryCount }], month, fetchedAt }
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const month = searchParams.get("month") ?? currentYearMonth();
+  const rawMonth = searchParams.get("month") ?? currentYearMonth();
+
+  // Validate month format strictly to prevent parseInt(NaN) downstream
+  const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+  if (!MONTH_RE.test(rawMonth)) {
+    return NextResponse.json(
+      { error: `Neplatný formát měsíce: "${rawMonth}" (očekáváno YYYY-MM)` },
+      { status: 400 }
+    );
+  }
+  const month = rawMonth;
 
   try {
     const { workspaceId, userId } = await getWorkspace();
 
     // Build date range for month (inclusive)
     const [yearStr, monthStr] = month.split("-");
-    const year = parseInt(yearStr);
-    const mon  = parseInt(monthStr);
+    const year = parseInt(yearStr, 10);
+    const mon  = parseInt(monthStr, 10);
     const start = new Date(Date.UTC(year, mon - 1, 1, 0, 0, 0)).toISOString();
     const end   = new Date(Date.UTC(year, mon, 0, 23, 59, 59)).toISOString();
 
-    // Fetch projects list + time entries in parallel
+    // Fetch projects list + time entries in parallel (no-store: month data must always be fresh)
     const [projRes, entriesRes] = await Promise.all([
       fetch(
         `${BASE}/workspaces/${workspaceId}/projects?page-size=200&archived=false`,
-        { headers: clockifyHeaders() }
+        { headers: clockifyHeaders(), cache: "no-store" }
       ),
       fetch(
         `${BASE}/workspaces/${workspaceId}/user/${userId}/time-entries` +
         `?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}&page-size=5000`,
-        { headers: clockifyHeaders() }
+        { headers: clockifyHeaders(), cache: "no-store" }
       ),
     ]);
 
