@@ -107,6 +107,18 @@ export const Schema = {
     name: Evolu.NonEmptyTrimmedString100,              // project name (cached)
     hourlyRate: Evolu.NonNegativeNumber,               // rate in chosen currency
     currency: Evolu.NonEmptyTrimmedString100,          // CZK, EUR, USD …
+    // Earnings that were already "nevyfakturováno" before WealthTracker
+    // tracking started — set once by user as a starting balance
+    initialEarnings: Evolu.nullOr(Evolu.NonNegativeNumber),
+    deleted: Evolu.nullOr(Evolu.SqliteBoolean),
+  },
+  // One row per (project, month) synced from Clockify — stores raw hours so
+  // the amount can be recomputed whenever the hourly rate changes
+  clockifyMonthlyEarnings: {
+    id: Evolu.id("ClockifyMonthlyEarnings"),
+    clockifyProjectId: Evolu.NonEmptyTrimmedString100,
+    yearMonth: Evolu.NonEmptyTrimmedString100,  // "2026-02"
+    hours: Evolu.NonNegativeNumber,
     deleted: Evolu.nullOr(Evolu.SqliteBoolean),
   },
   clockifyInvoicedPeriod: {
