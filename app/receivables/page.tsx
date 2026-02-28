@@ -18,6 +18,7 @@ const EMPTY_FORM = { description: "", client: "", amount: "", currency: "CZK", d
 export default function ReceivablesPage() {
   const evolu = useEvolu();
   const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [saving, setSaving] = useState(false);
 
@@ -37,7 +38,7 @@ export default function ReceivablesPage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    const result = evolu.insert("receivable", {
+    const fields = {
       description: form.description.trim(),
       client: form.client.trim() || null,
       amount: parseFloat(form.amount as string),
@@ -45,10 +46,31 @@ export default function ReceivablesPage() {
       status: form.status,
       dueDate: form.dueDate ? form.dueDate : null,
       notes: form.notes.trim() || null,
-      deleted: Evolu.sqliteFalse,
-    } as never);
-    setSaving(false);
-    if (result.ok) { setForm({ ...EMPTY_FORM }); setShowModal(false); }
+    };
+    if (editingId) {
+      evolu.update("receivable", { id: editingId as never, ...fields } as never);
+      setSaving(false);
+      setForm({ ...EMPTY_FORM }); setEditingId(null); setShowModal(false);
+    } else {
+      const result = evolu.insert("receivable", { ...fields, deleted: Evolu.sqliteFalse } as never);
+      setSaving(false);
+      if (result.ok) { setForm({ ...EMPTY_FORM }); setShowModal(false); }
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function handleStartEdit(item: any) {
+    setForm({
+      description: item.description as string,
+      client: (item.client as string) ?? "",
+      amount: String(item.amount as number),
+      currency: item.currency as string,
+      status: item.status as string,
+      dueDate: (item.dueDate as string) ?? "",
+      notes: (item.notes as string) ?? "",
+    });
+    setEditingId(item.id as string);
+    setShowModal(true);
   }
 
   function handleDelete(id: string) {
@@ -116,6 +138,7 @@ export default function ReceivablesPage() {
                         {statusStr !== "PAID" && (
                           <button onClick={() => markPaid(item.id as string)} style={{ background: "rgba(16,185,129,0.15)", color: "var(--green)", border: "1px solid var(--green)", borderRadius: "6px", padding: "0.3rem 0.6rem", cursor: "pointer", fontSize: "0.7rem", fontWeight: 600 }}>Mark Paid</button>
                         )}
+                        <button className="btn-ghost" onClick={() => handleStartEdit(item)} style={{ fontSize: "0.7rem", padding: "0.3rem 0.6rem" }}>✏️ Upravit</button>
                         <button className="btn-danger" onClick={() => handleDelete(item.id as string)}>Delete</button>
                       </div>
                     </td>
@@ -128,7 +151,7 @@ export default function ReceivablesPage() {
       </div>
 
       {showModal && (
-        <Modal title="Add Receivable" onClose={() => setShowModal(false)}>
+        <Modal title={editingId ? "Upravit pohledávku" : "Add Receivable"} onClose={() => { setShowModal(false); setForm({ ...EMPTY_FORM }); setEditingId(null); }}>
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
             <FormField label="Description *" name="description" value={form.description} onChange={handleChange} placeholder="e.g. Website redesign — March" required />
             <FormField label="Client" name="client" value={form.client} onChange={handleChange} placeholder="e.g. Acme s.r.o." />
@@ -142,8 +165,8 @@ export default function ReceivablesPage() {
             </div>
             <FormField label="Notes" name="notes" type="textarea" value={form.notes} onChange={handleChange} placeholder="Additional details…" />
             <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", marginTop: "0.5rem" }}>
-              <button type="button" className="btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>
-              <button type="submit" className="btn-primary" disabled={saving}>{saving ? "Saving…" : "Add Receivable"}</button>
+              <button type="button" className="btn-ghost" onClick={() => { setShowModal(false); setForm({ ...EMPTY_FORM }); setEditingId(null); }}>Cancel</button>
+              <button type="submit" className="btn-primary" disabled={saving}>{saving ? "Saving…" : editingId ? "Uložit změny" : "Add Receivable"}</button>
             </div>
           </form>
         </Modal>
