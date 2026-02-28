@@ -119,6 +119,7 @@ export default function CryptoPage() {
 
   // Form state
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [nameLookupLoading, setNameLookupLoading] = useState(false);
 
@@ -268,18 +269,45 @@ export default function CryptoPage() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const result = evolu.insert("cryptoHolding", {
-      symbol: form.symbol.toUpperCase().trim(),
-      name: form.name.trim(),
-      amount: parseFloat(form.amount),
-      buyPrice: form.buyPrice ? parseFloat(form.buyPrice) : null,
-      notes: form.notes.trim() || null,
-      deleted: Evolu.sqliteFalse,
-    } as never);
-    if (result.ok) {
+    if (editingId) {
+      evolu.update("cryptoHolding", {
+        id: editingId as never,
+        symbol: form.symbol.toUpperCase().trim(),
+        name: form.name.trim(),
+        amount: parseFloat(form.amount),
+        buyPrice: form.buyPrice ? parseFloat(form.buyPrice) : null,
+        notes: form.notes.trim() || null,
+      } as never);
       setForm(emptyForm);
+      setEditingId(null);
       setShowAddModal(false);
+    } else {
+      const result = evolu.insert("cryptoHolding", {
+        symbol: form.symbol.toUpperCase().trim(),
+        name: form.name.trim(),
+        amount: parseFloat(form.amount),
+        buyPrice: form.buyPrice ? parseFloat(form.buyPrice) : null,
+        notes: form.notes.trim() || null,
+        deleted: Evolu.sqliteFalse,
+      } as never);
+      if (result.ok) {
+        setForm(emptyForm);
+        setShowAddModal(false);
+      }
     }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function handleStartEdit(h: any) {
+    setForm({
+      symbol: h.symbol as string,
+      name: h.name as string,
+      amount: String(h.amount as number),
+      buyPrice: h.buyPrice != null ? String(h.buyPrice as number) : "",
+      notes: (h.notes as string) ?? "",
+    });
+    setEditingId(h.id as string);
+    setShowAddModal(true);
   }
 
   function handleDelete(id: string) {
@@ -561,6 +589,7 @@ export default function CryptoPage() {
                           title="Historický chart"
                           style={{ background: "none", border: "1px solid var(--card-border)", borderRadius: "6px", padding: "0.3rem 0.5rem", cursor: "pointer", color: "var(--muted)", fontSize: "0.8rem" }}
                         >📈</button>
+                        <button className="btn-ghost" onClick={() => handleStartEdit(h)} title="Upravit" style={{ padding: "0.3rem 0.5rem", fontSize: "0.8rem" }}>✏️</button>
                         <button className="btn-danger" onClick={() => handleDelete(h.id as string)}>✕</button>
                       </div>
                     </td>
@@ -633,9 +662,9 @@ export default function CryptoPage() {
         </Modal>
       )}
 
-      {/* ── Add Holding modal ── */}
+      {/* ── Add / Edit Holding modal ── */}
       {showAddModal && (
-        <Modal title="Přidat Crypto Holding" onClose={() => { setShowAddModal(false); setForm(emptyForm); }}>
+        <Modal title={editingId ? "Upravit Crypto Holding" : "Přidat Crypto Holding"} onClose={() => { setShowAddModal(false); setForm(emptyForm); setEditingId(null); }}>
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
             <div style={{ position: "relative" }}>
               <FormField label="Symbol (BTC, ETH…)" name="symbol" value={form.symbol}
@@ -674,8 +703,8 @@ export default function CryptoPage() {
             )}
 
             <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", marginTop: "0.5rem" }}>
-              <button type="button" className="btn-ghost" onClick={() => { setShowAddModal(false); setForm(emptyForm); }}>Zrušit</button>
-              <button type="submit" className="btn-primary">Přidat</button>
+              <button type="button" className="btn-ghost" onClick={() => { setShowAddModal(false); setForm(emptyForm); setEditingId(null); }}>Zrušit</button>
+              <button type="submit" className="btn-primary">{editingId ? "Uložit změny" : "Přidat"}</button>
             </div>
           </form>
         </Modal>

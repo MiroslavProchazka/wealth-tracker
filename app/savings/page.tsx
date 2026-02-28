@@ -12,6 +12,7 @@ const EMPTY = { name: "", bank: "", balance: "", currency: "CZK", interestRate: 
 export default function SavingsPage() {
   const evolu = useEvolu();
   const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ ...EMPTY });
   const [saving, setSaving] = useState(false);
 
@@ -31,17 +32,37 @@ export default function SavingsPage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    const result = evolu.insert("savingsAccount", {
+    const fields = {
       name: form.name.trim(),
       bank: form.bank.trim(),
       balance: parseFloat(form.balance as string),
       currency: form.currency,
       interestRate: form.interestRate ? parseFloat(form.interestRate as string) : null,
       notes: form.notes.trim() || null,
-      deleted: Evolu.sqliteFalse,
-    } as never);
-    setSaving(false);
-    if (result.ok) { setForm({ ...EMPTY }); setShowModal(false); }
+    };
+    if (editingId) {
+      evolu.update("savingsAccount", { id: editingId as never, ...fields } as never);
+      setSaving(false);
+      setForm({ ...EMPTY }); setEditingId(null); setShowModal(false);
+    } else {
+      const result = evolu.insert("savingsAccount", { ...fields, deleted: Evolu.sqliteFalse } as never);
+      setSaving(false);
+      if (result.ok) { setForm({ ...EMPTY }); setShowModal(false); }
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function handleStartEdit(item: any) {
+    setForm({
+      name: item.name as string,
+      bank: item.bank as string,
+      balance: String(item.balance as number),
+      currency: item.currency as string,
+      interestRate: item.interestRate != null ? String(item.interestRate as number) : "",
+      notes: (item.notes as string) ?? "",
+    });
+    setEditingId(item.id as string);
+    setShowModal(true);
   }
 
   function handleDelete(id: string) {
@@ -80,7 +101,10 @@ export default function SavingsPage() {
                   <div style={{ fontWeight: 700, fontSize: "1rem" }}>{item.name as string}</div>
                   <div style={{ color: "var(--muted)", fontSize: "0.8rem", marginTop: "0.2rem" }}>{item.bank as string}</div>
                 </div>
-                <button className="btn-danger" onClick={() => handleDelete(item.id as string)}>Delete</button>
+                <div style={{ display: "flex", gap: "0.4rem" }}>
+                  <button className="btn-ghost" onClick={() => handleStartEdit(item)} style={{ fontSize: "0.8rem" }}>✏️</button>
+                  <button className="btn-danger" onClick={() => handleDelete(item.id as string)}>Delete</button>
+                </div>
               </div>
               <div style={{ marginTop: "1rem" }}>
                 <div style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--green)" }}>{formatCurrency(item.balance as number, item.currency as string)}</div>
@@ -98,7 +122,7 @@ export default function SavingsPage() {
       )}
 
       {showModal && (
-        <Modal title="Add Savings Account" onClose={() => setShowModal(false)}>
+        <Modal title={editingId ? "Upravit spořicí účet" : "Add Savings Account"} onClose={() => { setShowModal(false); setForm({ ...EMPTY }); setEditingId(null); }}>
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
             <FormField label="Account Name *" name="name" value={form.name} onChange={handleChange} placeholder="e.g. Spořicí účet Moneta" required />
             <FormField label="Bank / Provider *" name="bank" value={form.bank} onChange={handleChange} placeholder="e.g. Moneta Money Bank" required />
@@ -109,8 +133,8 @@ export default function SavingsPage() {
             <FormField label="Interest Rate % p.a." name="interestRate" type="number" value={form.interestRate} onChange={handleChange} placeholder="e.g. 4.5" step="0.01" min="0" />
             <FormField label="Notes" name="notes" type="textarea" value={form.notes} onChange={handleChange} placeholder="Any additional notes…" />
             <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", marginTop: "0.5rem" }}>
-              <button type="button" className="btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>
-              <button type="submit" className="btn-primary" disabled={saving}>{saving ? "Saving…" : "Add Account"}</button>
+              <button type="button" className="btn-ghost" onClick={() => { setShowModal(false); setForm({ ...EMPTY }); setEditingId(null); }}>Cancel</button>
+              <button type="submit" className="btn-primary" disabled={saving}>{saving ? "Saving…" : editingId ? "Uložit změny" : "Add Account"}</button>
             </div>
           </form>
         </Modal>

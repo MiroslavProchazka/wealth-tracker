@@ -12,6 +12,7 @@ const emptyForm = { name: "", address: "", estimatedValue: "", currency: "CZK", 
 export default function PropertyPage() {
   const evolu = useEvolu();
   const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
 
@@ -31,7 +32,7 @@ export default function PropertyPage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    const result = evolu.insert("property", {
+    const fields = {
       name: form.name.trim(),
       address: form.address.trim() || null,
       estimatedValue: parseFloat(form.estimatedValue),
@@ -44,10 +45,36 @@ export default function PropertyPage() {
       mortgageStart: form.hasMortgage && form.mortgageStart ? form.mortgageStart : null,
       mortgageEnd: form.hasMortgage && form.mortgageEnd ? form.mortgageEnd : null,
       notes: form.notes.trim() || null,
-      deleted: Evolu.sqliteFalse,
-    } as never);
-    setSaving(false);
-    if (result.ok) { setForm(emptyForm); setShowModal(false); }
+    };
+    if (editingId) {
+      evolu.update("property", { id: editingId as never, ...fields } as never);
+      setSaving(false);
+      setForm(emptyForm); setEditingId(null); setShowModal(false);
+    } else {
+      const result = evolu.insert("property", { ...fields, deleted: Evolu.sqliteFalse } as never);
+      setSaving(false);
+      if (result.ok) { setForm(emptyForm); setShowModal(false); }
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function handleStartEdit(p: any) {
+    setForm({
+      name: p.name as string,
+      address: (p.address as string) ?? "",
+      estimatedValue: String(p.estimatedValue as number),
+      currency: (p.currency as string) ?? "CZK",
+      hasMortgage: p.hasMortgage === Evolu.sqliteTrue,
+      originalLoan: p.originalLoan != null ? String(p.originalLoan as number) : "",
+      remainingLoan: p.remainingLoan != null ? String(p.remainingLoan as number) : "",
+      monthlyPayment: p.monthlyPayment != null ? String(p.monthlyPayment as number) : "",
+      interestRate: p.interestRate != null ? String(p.interestRate as number) : "",
+      mortgageStart: (p.mortgageStart as string) ?? "",
+      mortgageEnd: (p.mortgageEnd as string) ?? "",
+      notes: (p.notes as string) ?? "",
+    });
+    setEditingId(p.id as string);
+    setShowModal(true);
   }
 
   function handleDelete(id: string) {
@@ -103,7 +130,10 @@ export default function PropertyPage() {
             const yearsLeft = mortgageEndStr ? Math.max(0, new Date(mortgageEndStr).getFullYear() - new Date().getFullYear()) : null;
             return (
               <div key={p.id as string} className="card" style={{ position: "relative" }}>
-                <button className="btn-danger" onClick={() => handleDelete(p.id as string)} style={{ position: "absolute", top: "1.25rem", right: "1.25rem" }}>Delete</button>
+                <div style={{ position: "absolute", top: "1.25rem", right: "1.25rem", display: "flex", gap: "0.5rem" }}>
+                  <button className="btn-ghost" onClick={() => handleStartEdit(p)} style={{ fontSize: "0.8rem" }}>✏️ Upravit</button>
+                  <button className="btn-danger" onClick={() => handleDelete(p.id as string)}>Delete</button>
+                </div>
                 <div style={{ marginBottom: "1rem", paddingRight: "5rem" }}>
                   <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700 }}>{p.name as string}</h2>
                   {(p.address as string) && <div style={{ color: "var(--muted)", fontSize: "0.875rem", marginTop: "0.25rem" }}>{p.address as string}</div>}
@@ -146,7 +176,7 @@ export default function PropertyPage() {
       )}
 
       {showModal && (
-        <Modal title="Add Property" onClose={() => setShowModal(false)}>
+        <Modal title={editingId ? "Upravit nemovitost" : "Add Property"} onClose={() => { setShowModal(false); setForm(emptyForm); setEditingId(null); }}>
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
             <FormField label="Name" name="name" value={form.name} onChange={handleChange} placeholder="Prague Flat" required />
             <FormField label="Address" name="address" value={form.address} onChange={handleChange} placeholder="Wenceslas Square 1, Prague" />
@@ -166,8 +196,8 @@ export default function PropertyPage() {
             )}
             <FormField label="Notes" name="notes" type="textarea" value={form.notes} onChange={handleChange} placeholder="Optional notes..." rows={3} />
             <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", marginTop: "0.5rem" }}>
-              <button type="button" className="btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>
-              <button type="submit" className="btn-primary" disabled={saving}>{saving ? "Saving..." : "Add Property"}</button>
+              <button type="button" className="btn-ghost" onClick={() => { setShowModal(false); setForm(emptyForm); setEditingId(null); }}>Cancel</button>
+              <button type="submit" className="btn-primary" disabled={saving}>{saving ? "Saving..." : editingId ? "Uložit změny" : "Add Property"}</button>
             </div>
           </form>
         </Modal>
