@@ -69,6 +69,17 @@ export default function BillingPage() {
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   const [noApiKey, setNoApiKey]   = useState(false);
 
+  // ── Fakturoid state ─────────────────────────────────────────────────────────
+  const [fakturoidReady, setFakturoidReady]               = useState(false);
+  const [sendToFakturoid, setSendToFakturoid]             = useState(false);
+  const [subjectSearch, setSubjectSearch]                 = useState("");
+  const [subjectResults, setSubjectResults]               = useState<{ id: number; name: string; registration_no?: string }[]>([]);
+  const [selectedSubject, setSelectedSubject]             = useState<{ id: number; name: string } | null>(null);
+  const [fDue, setFDue]                                   = useState("14");
+  const [fVatRate, setFVatRate]                           = useState("0");
+  const [fakturoidError, setFakturoidError]               = useState<string | null>(null);
+  const [fakturoidSubmitting, setFakturoidSubmitting]     = useState(false);
+
   // ── Evolu queries ───────────────────────────────────────────────────────────
   const ratesQ = useMemo(() => evolu.createQuery((db) =>
     db.selectFrom("clockifyProjectRate").selectAll()
@@ -219,6 +230,29 @@ export default function BillingPage() {
 
   useEffect(() => { fetchClockify(); }, [fetchClockify]);
 
+  // Check Fakturoid connection on mount
+  useEffect(() => {
+    fetch("/api/fakturoid")
+      .then((r) => r.json())
+      .then((d) => { if (d.connected) setFakturoidReady(true); })
+      .catch(() => {});
+  }, []);
+
+  // Debounced subject search (fires only while Fakturoid section is open)
+  useEffect(() => {
+    if (!sendToFakturoid || !fakturoidReady || !subjectSearch) {
+      setSubjectResults([]);
+      return;
+    }
+    const timer = setTimeout(() => {
+      fetch(`/api/fakturoid/subjects?query=${encodeURIComponent(subjectSearch)}`)
+        .then((r) => r.json())
+        .then((d) => setSubjectResults(d.subjects ?? []))
+        .catch(() => setSubjectResults([]));
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [subjectSearch, sendToFakturoid, fakturoidReady]);
+
   // ── Rate editing (local inline state) ──────────────────────────────────────
   const [rateInputs, setRateInputs] = useState<
     Record<string, { rate: string; currency: string; initialEarnings: string }>
@@ -312,9 +346,15 @@ export default function BillingPage() {
       dueDate: "",
     });
     setInvoiceError(null);
+    // Reset Fakturoid section
+    setSendToFakturoid(false);
+    setSelectedSubject(null);
+    setSubjectSearch("");
+    setSubjectResults([]);
+    setFakturoidError(null);
   }
 
-  function handleCreateInvoice(e: React.FormEvent) {
+  async function handleCreateInvoice(e: React.FormEvent) {
     e.preventDefault();
     if (!invoiceModal) return;
 
@@ -327,6 +367,46 @@ export default function BillingPage() {
     const { project, currency } = invoiceModal;
     const currentMonthHours = projects.find(p => p.id === project.id)?.totalHours ?? 0;
 
+    // Optionally create invoice in Fakturoid first
+    let fakturoidTag = "";
+    if (sendToFakturoid && fakturoidReady) {
+      if (!selectedSubject) { setInvoiceError("Vyber klienta z Fakturoidu"); return; }
+      setFakturoidError(null);
+      setFakturoidSubmitting(true);
+      try {
+        const r = await fetch("/api/fakturoid/invoices", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            subject_id: selectedSubject.id,
+            issued_on: new Date().toISOString().slice(0, 10),
+            due: parseInt(fDue, 10) || 14,
+            currency,
+            note: description,
+            lines: [{
+              name: description,
+              quantity: "1.0",
+              unit_name: "ks",
+              unit_price: String(amount),
+              vat_rate: fVatRate,
+            }],
+          }),
+        });
+        const d = await r.json();
+        if (!r.ok) {
+          setFakturoidError(d.error ?? "Fakturoid: chyba při vytváření faktury");
+          setFakturoidSubmitting(false);
+          return;
+        }
+        fakturoidTag = d.number ? ` · Fakturoid ${d.number}` : "";
+      } catch {
+        setFakturoidError("Nelze se připojit k Fakturoidu");
+        setFakturoidSubmitting(false);
+        return;
+      }
+      setFakturoidSubmitting(false);
+    }
+
     // 1. Insert receivable (pohledávka)
     evolu.insert("receivable", {
       description,
@@ -335,7 +415,7 @@ export default function BillingPage() {
       currency,
       status: "INVOICED",
       dueDate: invoiceForm.dueDate || null,
-      notes: `Clockify · ${monthLabel(month)}${currentMonthHours > 0 ? ` · ${formatHours(currentMonthHours)}` : ""}`,
+      notes: `Clockify · ${monthLabel(month)}${currentMonthHours > 0 ? ` · ${formatHours(currentMonthHours)}` : ""}${fakturoidTag}`,
       deleted: Evolu.sqliteFalse,
     } as never);
 
@@ -744,6 +824,116 @@ export default function BillingPage() {
               onChange={(e) => setInvoiceForm((f) => ({ ...f, dueDate: e.target.value }))}
             />
 
+            {/* ── Fakturoid section (only when connected) ── */}
+            {fakturoidReady && (
+              <div style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "0.6rem", cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={sendToFakturoid}
+                    onChange={(e) => setSendToFakturoid(e.target.checked)}
+                    style={{ width: "15px", height: "15px", accentColor: "var(--accent)" }}
+                  />
+                  <span style={{ fontWeight: 600, fontSize: "0.875rem" }}>Vytvořit fakturu v Fakturoidu</span>
+                  <span style={{ fontSize: "0.72rem", color: "var(--muted)" }}>nepovinné</span>
+                </label>
+
+                {sendToFakturoid && (
+                  <div style={{ marginTop: "0.9rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+
+                    {/* Subject (client) search */}
+                    <div style={{ position: "relative" }}>
+                      <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.35rem", color: "var(--text-2)" }}>
+                        Klient *
+                      </label>
+                      <input
+                        type="text"
+                        value={subjectSearch}
+                        onChange={(e) => { setSubjectSearch(e.target.value); setSelectedSubject(null); }}
+                        placeholder="Hledat jméno nebo IČ…"
+                        autoComplete="off"
+                        style={{
+                          width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px",
+                          border: `1px solid ${selectedSubject ? "var(--green)" : "var(--border)"}`,
+                          background: "var(--surface-2)", color: "var(--text)", fontSize: "0.875rem",
+                        }}
+                      />
+                      {subjectResults.length > 0 && !selectedSubject && (
+                        <div style={{
+                          position: "absolute", top: "100%", left: 0, right: 0, zIndex: 20,
+                          background: "var(--surface-1)", border: "1px solid var(--border)",
+                          borderRadius: "8px", boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
+                          marginTop: "3px", maxHeight: "200px", overflowY: "auto",
+                        }}>
+                          {subjectResults.map((s) => (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => { setSelectedSubject(s); setSubjectSearch(s.name); setSubjectResults([]); }}
+                              style={{
+                                display: "block", width: "100%", textAlign: "left",
+                                padding: "0.6rem 0.9rem", background: "transparent",
+                                border: "none", borderBottom: "1px solid var(--border)",
+                                color: "var(--text)", cursor: "pointer", fontSize: "0.875rem",
+                              }}
+                            >
+                              <span style={{ fontWeight: 600 }}>{s.name}</span>
+                              {s.registration_no && (
+                                <span style={{ color: "var(--muted)", fontSize: "0.75rem", marginLeft: "0.5rem" }}>
+                                  IČ {s.registration_no}
+                                </span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {selectedSubject && (
+                        <div style={{ marginTop: "0.3rem", fontSize: "0.75rem", color: "var(--green)" }}>
+                          ✓ {selectedSubject.name}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Splatnost + DPH */}
+                    <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+                      <div>
+                        <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.3rem", color: "var(--text-2)" }}>
+                          Splatnost (dny)
+                        </label>
+                        <input
+                          type="number"
+                          value={fDue}
+                          onChange={(e) => setFDue(e.target.value)}
+                          min="1" max="365"
+                          style={{ width: "80px", padding: "0.4rem 0.5rem", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: "0.875rem", textAlign: "right" }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.3rem", color: "var(--text-2)" }}>
+                          Sazba DPH
+                        </label>
+                        <select
+                          value={fVatRate}
+                          onChange={(e) => setFVatRate(e.target.value)}
+                          style={{ padding: "0.4rem 0.6rem", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: "0.875rem" }}
+                        >
+                          <option value="0">0 %</option>
+                          <option value="12">12 %</option>
+                          <option value="21">21 %</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {fakturoidError && (
+                      <div style={{ padding: "0.65rem 0.9rem", borderRadius: "8px", background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)", color: "var(--red)", fontSize: "0.85rem" }}>
+                        ⚠ {fakturoidError}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {invoiceError && (
               <div style={{ padding: "0.65rem 0.9rem", borderRadius: "8px", background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)", color: "var(--red)", fontSize: "0.85rem" }}>
                 ⚠ {invoiceError}
@@ -752,7 +942,9 @@ export default function BillingPage() {
 
             <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", marginTop: "0.5rem" }}>
               <button type="button" className="btn-ghost" onClick={() => setInvoiceModal(null)}>Zrušit</button>
-              <button type="submit" className="btn-primary">Vytvořit pohledávku →</button>
+              <button type="submit" className="btn-primary" disabled={fakturoidSubmitting}>
+                {fakturoidSubmitting ? "Odesílám…" : "Vytvořit pohledávku →"}
+              </button>
             </div>
           </form>
         </Modal>
