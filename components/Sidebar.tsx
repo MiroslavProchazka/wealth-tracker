@@ -38,6 +38,14 @@ const Icons = {
       <path d="M11 5l3 3-3 3"/>
     </svg>
   ),
+  billing: (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="1" y="2" width="14" height="12" rx="1.5"/>
+      <line x1="1" y1="6" x2="15" y2="6"/>
+      <path d="M4 9.5h3M4 11.5h2"/>
+      <path d="M10 9l1.5 1.5L13 8.5"/>
+    </svg>
+  ),
   savings: (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
       <path d="M8 1L2 4v5c0 3.2 2.5 5.5 6 6.5 3.5-1 6-3.3 6-6.5V4L8 1z"/>
@@ -77,7 +85,7 @@ const NAV_ITEMS = [
   { href: "/crypto",      label: "Crypto",       icon: Icons.crypto      },
   { href: "/stocks",      label: "Stocks",       icon: Icons.stocks      },
   { href: "/property",    label: "Property",     icon: Icons.property    },
-  { href: "/receivables", label: "Receivables",  icon: Icons.receivables },
+  { href: "/billing",     label: "Billing",      icon: Icons.billing     },
   { href: "/savings",     label: "Savings",      icon: Icons.savings     },
   { href: "/accounts",    label: "Bank Accounts",icon: Icons.accounts    },
   { href: "/goals",       label: "Goals",        icon: Icons.goals       },
