@@ -7,6 +7,7 @@ import { useEvolu } from "@/lib/evolu";
 import Modal from "@/components/Modal";
 import FormField from "@/components/FormField";
 import { formatCurrency } from "@/lib/currencies";
+import { buildTotalInvoicedMap } from "@/lib/clockifyBalance";
 import Link from "next/link";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -141,24 +142,16 @@ export default function BillingPage() {
   }, [monthlyEarnings]);
 
   // ── Total invoiced per project — keyed by projectId, per-currency sums ───────
-  // Summing across currencies would produce misleading numbers, so we only sum
-  // records whose currency matches the project's current currency setting.
-  // Records in a different currency (e.g. from a prior rate configuration) are
-  // excluded from the balance calculation; a currency mismatch is surfaced in the UI.
-  const totalInvoicedByProject = useMemo(() => {
-    const m: Record<string, { amount: number; currency: string }> = {};
-    for (const inv of invoiced) {
-      const pid = inv.clockifyProjectId as string;
-      const cur = inv.currency as string;
-      if (!m[pid]) {
-        m[pid] = { amount: inv.amount as number, currency: cur };
-      } else if (m[pid].currency === cur) {
-        m[pid].amount += inv.amount as number;
-      }
-      // Different currency — intentionally skipped; balance stays conservative
-    }
-    return m;
-  }, [invoiced]);
+  // See buildTotalInvoicedMap in lib/clockifyBalance.ts for the intentional
+  // currency-mismatch handling (cross-currency invoices are skipped to keep
+  // the balance conservative; mismatches are surfaced in the UI below).
+  const totalInvoicedByProject = useMemo(() => buildTotalInvoicedMap(
+    invoiced.map((inv) => ({
+      clockifyProjectId: inv.clockifyProjectId as string,
+      amount:            inv.amount as number,
+      currency:          inv.currency as string,
+    }))
+  ), [invoiced]);
 
   // ── Invoiced period map: "projectId:yearMonth" → { invId, hours, amount, currency } ──
   const invoicedMap = useMemo(() => {
