@@ -44,7 +44,7 @@ export default function Dashboard() {
   ), [evolu]);
   const snapshotQ = useMemo(() => evolu.createQuery((db) => db
     .selectFrom("netWorthSnapshot")
-    .select(["netWorth"])
+    .select(["netWorth", "schemaVersion"])
     .where("isDeleted", "is not", Evolu.sqliteTrue)
     .where("deleted", "is not", Evolu.sqliteTrue)
     .orderBy("snapshotDate", "desc")
@@ -104,7 +104,12 @@ export default function Dashboard() {
   const totalLiabilities = mortgageDebt;
   const netWorth         = totalAssets - totalLiabilities;
   const prevSnapshot     = snapshots[1];
-  const change           = prevSnapshot ? netWorth - (prevSnapshot.netWorth as number) : 0;
+  const currentSnapshot  = snapshots[0];
+  const comparableSnapshots =
+    currentSnapshot && prevSnapshot &&
+    (currentSnapshot.schemaVersion as number | null) === 1 &&
+    (prevSnapshot.schemaVersion as number | null) === 1;
+  const change           = comparableSnapshots ? netWorth - (prevSnapshot.netWorth as number) : 0;
 
   const allocationItems = [
     { label: "Property",    value: propertyValue,   color: "#8b5cf6", href: "/property" },
