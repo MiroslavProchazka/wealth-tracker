@@ -5,7 +5,6 @@ import * as Evolu from "@evolu/common";
 import { useQuery } from "@evolu/react";
 import { useEvolu } from "@/lib/evolu";
 import { formatCurrency } from "@/lib/currencies";
-import { computeUninvoicedBalance } from "@/lib/clockifyBalance";
 import StatCard from "@/components/StatCard";
 import Link from "next/link";
 
@@ -43,12 +42,6 @@ export default function Dashboard() {
     .where("isDeleted", "is not", Evolu.sqliteTrue)
     .where("deleted", "is not", Evolu.sqliteTrue)
   ), [evolu]);
-  const bankQ = useMemo(() => evolu.createQuery((db) => db
-    .selectFrom("bankAccount")
-    .select(["balance"])
-    .where("isDeleted", "is not", Evolu.sqliteTrue)
-    .where("deleted", "is not", Evolu.sqliteTrue)
-  ), [evolu]);
   const snapshotQ = useMemo(() => evolu.createQuery((db) => db
     .selectFrom("netWorthSnapshot")
     .select(["netWorth"])
@@ -58,35 +51,12 @@ export default function Dashboard() {
     .limit(2)
   ), [evolu]);
 
-  const clockifyRatesQ = useMemo(() => evolu.createQuery((db) => db
-    .selectFrom("clockifyProjectRate")
-    .select(["clockifyProjectId", "hourlyRate", "currency", "initialEarnings"])
-    .where("isDeleted", "is not", Evolu.sqliteTrue)
-    .where("deleted", "is not", Evolu.sqliteTrue)
-  ), [evolu]);
-  const clockifyEarningsQ = useMemo(() => evolu.createQuery((db) => db
-    .selectFrom("clockifyMonthlyEarnings")
-    .select(["clockifyProjectId", "hours"])
-    .where("isDeleted", "is not", Evolu.sqliteTrue)
-    .where("deleted", "is not", Evolu.sqliteTrue)
-  ), [evolu]);
-  const clockifyInvoicedQ = useMemo(() => evolu.createQuery((db) => db
-    .selectFrom("clockifyInvoicedPeriod")
-    .select(["clockifyProjectId", "amount", "currency"])
-    .where("isDeleted", "is not", Evolu.sqliteTrue)
-    .where("deleted", "is not", Evolu.sqliteTrue)
-  ), [evolu]);
-
-  const cryptos          = useQuery(cryptoQ);
-  const stocks           = useQuery(stockQ);
-  const properties       = useQuery(propertyQ);
-  const receivables      = useQuery(receivableQ);
-  const savings          = useQuery(savingsQ);
-  const accounts         = useQuery(bankQ);
-  const snapshots        = useQuery(snapshotQ);
-  const clockifyRates    = useQuery(clockifyRatesQ);
-  const clockifyEarnings = useQuery(clockifyEarningsQ);
-  const clockifyInvoiced = useQuery(clockifyInvoicedQ);
+  const cryptos    = useQuery(cryptoQ);
+  const stocks     = useQuery(stockQ);
+  const properties = useQuery(propertyQ);
+  const receivables = useQuery(receivableQ);
+  const savings    = useQuery(savingsQ);
+  const snapshots  = useQuery(snapshotQ);
 
   // ── Live prices ────────────────────────────────────────────────────────────
   const [cryptoPrices, setCryptoPrices] = useState<Record<string, { czk: number }>>({});
@@ -99,7 +69,7 @@ export default function Dashboard() {
       .then((r) => r.json())
       .then((d) => { if (d.prices) setCryptoPrices(d.prices); })
       .catch(() => {/* silently ignore – fall back to 0 */});
-  }, [cryptos.length]); // re-fetch when holdings change
+  }, [cryptos.length]);
 
   useEffect(() => {
     const tickers = stocks.map((s) => (s.ticker as string).toUpperCase()).filter(Boolean);
@@ -108,17 +78,15 @@ export default function Dashboard() {
       .then((r) => r.json())
       .then((d) => { if (d.prices) setStockPrices(d.prices); })
       .catch(() => {/* silently ignore – fall back to 0 */});
-  }, [stocks.length]); // re-fetch when holdings change
+  }, [stocks.length]);
 
   // ── Computed values ────────────────────────────────────────────────────────
-  // Crypto: amount × live CZK price
   const cryptoValue = cryptos.reduce((s, c) => {
     const symbol = (c.symbol as string).toUpperCase();
     const price  = cryptoPrices[symbol]?.czk ?? 0;
     return s + (c.amount as number) * price;
   }, 0);
 
-  // Stocks: shares × live CZK price (API already converts to CZK)
   const stocksValue = stocks.reduce((s, st) => {
     const ticker = (st.ticker as string).toUpperCase();
     const price  = stockPrices[ticker]?.czk ?? 0;
@@ -131,42 +99,19 @@ export default function Dashboard() {
     .filter((r) => String(r.status) !== "PAID")
     .reduce((s, r) => s + (r.amount as number), 0);
   const savingsValue     = savings.reduce((s, sv) => s + (sv.balance as number), 0);
-  const bankValue        = accounts.reduce((s, a) => s + (a.balance as number), 0);
 
-  // Uninvoiced (nevyfakturováno): earned minus invoiced, CZK projects only.
-  // Non-CZK projects are excluded to avoid mixing currencies in a CZK-denominated total.
-  const uninvoicedValue = useMemo(() => computeUninvoicedBalance(
-    clockifyRates.map((r) => ({
-      clockifyProjectId: r.clockifyProjectId as string,
-      hourlyRate:        r.hourlyRate as number,
-      currency:          r.currency as string,
-      initialEarnings:   (r.initialEarnings as number | null) ?? 0,
-    })),
-    clockifyEarnings.map((e) => ({
-      clockifyProjectId: e.clockifyProjectId as string,
-      hours:             e.hours as number,
-    })),
-    clockifyInvoiced.map((i) => ({
-      clockifyProjectId: i.clockifyProjectId as string,
-      amount:            i.amount as number,
-      currency:          i.currency as string,
-    }))
-  ), [clockifyRates, clockifyEarnings, clockifyInvoiced]);
-
-  const totalAssets      = cryptoValue + stocksValue + propertyValue + receivablesValue + savingsValue + bankValue + uninvoicedValue;
+  const totalAssets      = cryptoValue + stocksValue + propertyValue + receivablesValue + savingsValue;
   const totalLiabilities = mortgageDebt;
   const netWorth         = totalAssets - totalLiabilities;
   const prevSnapshot     = snapshots[1];
   const change           = prevSnapshot ? netWorth - (prevSnapshot.netWorth as number) : 0;
 
   const allocationItems = [
-    { label: "Property",         value: propertyValue,    color: "#8b5cf6", href: "/property" },
-    { label: "Savings",          value: savingsValue,     color: "#10b981", href: "/savings" },
-    { label: "Bank Accounts",    value: bankValue,         color: "#3b82f6", href: "/accounts" },
-    { label: "Stocks",           value: stocksValue,       color: "#f59e0b", href: "/stocks" },
-    { label: "Crypto",           value: cryptoValue,       color: "#f97316", href: "/crypto" },
-    { label: "Receivables",      value: receivablesValue,  color: "#06b6d4", href: "/receivables" },
-    { label: "Nevyfakturováno",  value: uninvoicedValue,   color: "#a855f7", href: "/billing" },
+    { label: "Property",    value: propertyValue,   color: "#8b5cf6", href: "/property" },
+    { label: "Savings",     value: savingsValue,    color: "#10b981", href: "/savings" },
+    { label: "Stocks",      value: stocksValue,     color: "#f59e0b", href: "/stocks" },
+    { label: "Crypto",      value: cryptoValue,     color: "#f97316", href: "/crypto" },
+    { label: "Receivables", value: receivablesValue,color: "#06b6d4", href: "/receivables" },
   ].filter((i) => i.value > 0);
   const total = allocationItems.reduce((s, i) => s + i.value, 0) || 1;
 
@@ -191,9 +136,6 @@ export default function Dashboard() {
         <StatCard label="Total Liabilities" value={formatCurrency(totalLiabilities, "CZK")} accent="var(--red)"   icon="↓" />
         <StatCard label="Savings"           value={formatCurrency(savingsValue, "CZK")}     accent="var(--green)" icon="🏦" />
         <StatCard label="Receivables"       value={formatCurrency(receivablesValue, "CZK")} sub={`${receivables.filter((r) => String(r.status) !== "PAID").length} pending`} accent="var(--yellow)" icon="💼" />
-        {uninvoicedValue > 0 && (
-          <StatCard label="Nevyfakturováno" value={formatCurrency(uninvoicedValue, "CZK")} sub="billing" accent="var(--accent)" icon="⏱" />
-        )}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }}>
@@ -235,7 +177,6 @@ export default function Dashboard() {
               { href: "/property",    icon: "🏠", label: "Property",    count: properties.length },
               { href: "/receivables", icon: "💼", label: "Receivables", count: receivables.filter((r) => String(r.status) !== "PAID").length },
               { href: "/savings",     icon: "🏦", label: "Savings",     count: null },
-              { href: "/billing",     icon: "⏱", label: "Billing",     count: null },
               { href: "/history",     icon: "📊", label: "History",     count: null },
             ].map((item) => (
               <Link key={item.href} href={item.href} style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.75rem", borderRadius: "8px", background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.15)", textDecoration: "none", color: "var(--foreground)", fontSize: "0.8rem" }}>
