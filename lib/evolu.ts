@@ -81,55 +81,6 @@ export const Schema = {
     notes: Evolu.nullOr(Evolu.TrimmedString1000),
     deleted: Evolu.nullOr(Evolu.SqliteBoolean),
   },
-  bankAccount: {
-    id: Evolu.id("BankAccount"),
-    name: Evolu.NonEmptyTrimmedString100,
-    bank: Evolu.NonEmptyTrimmedString100,
-    balance: Evolu.NonNegativeNumber,
-    currency: Evolu.NonEmptyTrimmedString100,
-    iban: Evolu.nullOr(Evolu.TrimmedString100),
-    notes: Evolu.nullOr(Evolu.TrimmedString1000),
-    deleted: Evolu.nullOr(Evolu.SqliteBoolean),
-  },
-  goal: {
-    id: Evolu.id("Goal"),
-    name: Evolu.NonEmptyTrimmedString100,
-    targetAmount: Evolu.NonNegativeNumber,
-    currency: Evolu.NonEmptyTrimmedString100,
-    deadline: Evolu.nullOr(Evolu.DateIso),
-    notes: Evolu.nullOr(Evolu.TrimmedString1000),
-    deleted: Evolu.nullOr(Evolu.SqliteBoolean),
-  },
-  // ── Billing / Clockify ───────────────────────────────────────────────────
-  clockifyProjectRate: {
-    id: Evolu.id("ClockifyProjectRate"),
-    clockifyProjectId: Evolu.NonEmptyTrimmedString100, // hex ID from Clockify
-    name: Evolu.NonEmptyTrimmedString100,              // project name (cached)
-    hourlyRate: Evolu.NonNegativeNumber,               // rate in chosen currency
-    currency: Evolu.NonEmptyTrimmedString100,          // CZK, EUR, USD …
-    // Earnings that were already "nevyfakturováno" before WealthTracker
-    // tracking started — set once by user as a starting balance
-    initialEarnings: Evolu.nullOr(Evolu.NonNegativeNumber),
-    deleted: Evolu.nullOr(Evolu.SqliteBoolean),
-  },
-  // One row per (project, month) synced from Clockify — stores raw hours so
-  // the amount can be recomputed whenever the hourly rate changes
-  clockifyMonthlyEarnings: {
-    id: Evolu.id("ClockifyMonthlyEarnings"),
-    clockifyProjectId: Evolu.NonEmptyTrimmedString100,
-    yearMonth: Evolu.NonEmptyTrimmedString100,  // "2026-02"
-    hours: Evolu.NonNegativeNumber,
-    deleted: Evolu.nullOr(Evolu.SqliteBoolean),
-  },
-  clockifyInvoicedPeriod: {
-    id: Evolu.id("ClockifyInvoicedPeriod"),
-    clockifyProjectId: Evolu.NonEmptyTrimmedString100,
-    yearMonth: Evolu.NonEmptyTrimmedString100,  // "2026-02"
-    hours: Evolu.NonNegativeNumber,
-    amount: Evolu.NonNegativeNumber,
-    currency: Evolu.NonEmptyTrimmedString100,
-    deleted: Evolu.nullOr(Evolu.SqliteBoolean),
-  },
   netWorthSnapshot: {
     id: Evolu.id("NetWorthSnapshot"),
     snapshotDate: Evolu.DateIso,
@@ -140,7 +91,6 @@ export const Schema = {
     stocksValue: Evolu.NonNegativeNumber,
     propertyValue: Evolu.NonNegativeNumber,
     savingsValue: Evolu.NonNegativeNumber,
-    bankValue: Evolu.NonNegativeNumber,
     receivablesValue: Evolu.NonNegativeNumber,
     deleted: Evolu.nullOr(Evolu.SqliteBoolean),
   },
