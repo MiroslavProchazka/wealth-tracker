@@ -43,6 +43,7 @@ const nextConfig: NextConfig = {
       // and WASM loading works. Unlike setting publicPath='auto' globally,
       // this leaves the main-thread publicPath untouched so Next.js can
       // correctly resolve JS chunk URLs (avoiding 404s from wrong base paths).
+      config.output ??= {};
       config.output.workerPublicPath = "auto";
     }
     return config;
