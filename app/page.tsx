@@ -22,6 +22,25 @@ import {
 export default function Dashboard() {
   const evolu = useEvolu();
 
+  // Simple Evolu health indicator: if basic query compilation succeeds,
+  // we consider the client ready. This helps debug environments where
+  // the worker / WASM initialization might silently fail and leave the
+  // UI seemingly unresponsive.
+  const [evoluReady, setEvoluReady] = useState(false);
+
+  useEffect(() => {
+    try {
+      // If we can at least construct the query object without throwing,
+      // we treat Evolu as "ready". We don't need to execute it here.
+      evolu.createQuery((db) =>
+        db.selectFrom("cryptoHolding").select(["id"]).limit(1)
+      );
+      setEvoluReady(true);
+    } catch {
+      setEvoluReady(false);
+    }
+  }, [evolu]);
+
   // ── Queries ────────────────────────────────────────────────────────────────
   const cryptoQ = useMemo(() => evolu.createQuery((db) => db
     .selectFrom("cryptoHolding")
@@ -146,6 +165,9 @@ export default function Dashboard() {
         <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 700, letterSpacing: "-0.025em" }}>Dashboard</h1>
         <p style={{ color: "var(--muted)", margin: "0.35rem 0 0", fontSize: "0.875rem" }}>
           {new Date().toLocaleDateString("cs-CZ", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+        </p>
+        <p style={{ color: "var(--muted)", margin: "0.15rem 0 0", fontSize: "0.75rem" }}>
+          Evolu status: {evoluReady ? "OK" : "offline"}
         </p>
       </div>
 
