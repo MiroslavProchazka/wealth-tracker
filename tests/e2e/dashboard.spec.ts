@@ -1,6 +1,20 @@
 import { test, expect } from "@playwright/test";
 import { waitForApp } from "./helpers";
 
+test.describe("/dashboard redirect", () => {
+  test("přesměruje /dashboard na /", async ({ page }) => {
+    const response = await page.goto("/dashboard");
+    expect(response?.status()).toBe(200);
+    expect(page.url()).toMatch(/\/$/);
+  });
+
+  test("přesměruje /dashboard/foo na /", async ({ page }) => {
+    const response = await page.goto("/dashboard/foo");
+    expect(response?.status()).toBe(200);
+    expect(page.url()).toMatch(/\/$/);
+  });
+});
+
 test.describe("Dashboard (/)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
