@@ -10,9 +10,15 @@ describe("StatCard", () => {
       expect(screen.getByText("1 234 567 Kč")).toBeInTheDocument();
     });
 
-    it("zobrazí ikonu když je předána", () => {
+    it("zobrazí string ikonu když je předána", () => {
       render(<StatCard label="Crypto" value="500 000 Kč" icon="₿" />);
       expect(screen.getByText("₿")).toBeInTheDocument();
+    });
+
+    it("zobrazí React element jako ikonu", () => {
+      const icon = <svg data-testid="svg-icon" />;
+      render(<StatCard label="Crypto" value="500 000 Kč" icon={icon} />);
+      expect(screen.getByTestId("svg-icon")).toBeInTheDocument();
     });
 
     it("nezobrazí ikonu bez prop", () => {
@@ -57,10 +63,19 @@ describe("StatCard", () => {
         <StatCard label="L" value="V" accent="#3b82f6" />
       );
       const card = container.firstChild as HTMLElement;
-      // Accent je absolutně pozicovaný div nahoře na kartě
       const divs = Array.from(card.querySelectorAll("div")) as HTMLElement[];
       const accentLine = divs.find((el) => el.style.position === "absolute");
       expect(accentLine).toBeTruthy();
+    });
+
+    it("accent linka má gradient pozadí", () => {
+      const { container } = render(
+        <StatCard label="L" value="V" accent="#3b82f6" />
+      );
+      const card = container.firstChild as HTMLElement;
+      const divs = Array.from(card.querySelectorAll("div")) as HTMLElement[];
+      const accentLine = divs.find((el) => el.style.position === "absolute") as HTMLElement;
+      expect(accentLine.style.background).toMatch(/gradient/);
     });
 
     it("bez accent nemá top line element", () => {
@@ -69,6 +84,34 @@ describe("StatCard", () => {
       const divs = Array.from(card.querySelectorAll("div")) as HTMLElement[];
       const accentLine = divs.find((el) => el.style.position === "absolute");
       expect(accentLine).toBeUndefined();
+    });
+  });
+
+  describe("icon container styling", () => {
+    it("icon container má gradient pozadí když je accent nastaven", () => {
+      render(
+        <StatCard label="L" value="V" icon={<span data-testid="icon-child" />} accent="#3b82f6" />
+      );
+      const iconChild = screen.getByTestId("icon-child");
+      const container = iconChild.parentElement as HTMLElement;
+      expect(container.style.background).toMatch(/gradient/);
+    });
+
+    it("icon container má surface-2 pozadí bez accentu", () => {
+      render(
+        <StatCard label="L" value="V" icon={<span data-testid="icon-child" />} />
+      );
+      const iconChild = screen.getByTestId("icon-child");
+      const container = iconChild.parentElement as HTMLElement;
+      expect(container.style.background).toBe("var(--surface-2)");
+    });
+  });
+
+  describe("tabular-nums na hodnotě", () => {
+    it("value div má nastaveny font-feature-settings pro tnum", () => {
+      render(<StatCard label="L" value="1 234 567" />);
+      const valueEl = screen.getByText("1 234 567") as HTMLElement;
+      expect(valueEl.style.fontFeatureSettings).toBe('"tnum"');
     });
   });
 
@@ -84,7 +127,7 @@ describe("StatCard", () => {
       expect(screen.getByText(longValue)).toBeInTheDocument();
     });
 
-    it("emoji v ikoně", () => {
+    it("emoji string v ikoně", () => {
       render(<StatCard label="L" value="V" icon="🏠" />);
       expect(screen.getByText("🏠")).toBeInTheDocument();
     });

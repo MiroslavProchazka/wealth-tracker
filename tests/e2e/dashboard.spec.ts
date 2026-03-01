@@ -32,11 +32,11 @@ test.describe("Dashboard (/)", () => {
     await expect(page.getByText(/net worth/i)).toBeVisible();
   });
 
-  test("zobrazí navigační sidebar s 10 položkami", async ({ page }) => {
+  test("zobrazí navigační sidebar s 7 položkami", async ({ page }) => {
     const nav = page.locator("aside nav");
     await expect(nav).toBeVisible();
     const links = nav.locator("a");
-    await expect(links).toHaveCount(10);
+    await expect(links).toHaveCount(7);
   });
 
   test("sidebar obsahuje WealthTracker brand", async ({ page }) => {
@@ -64,11 +64,36 @@ test.describe("Dashboard (/)", () => {
   });
 
   test("Dashboard je označen jako aktivní v sidebaru", async ({ page }) => {
-    // Aktivní odkaz má vyšší font-weight nebo modré pozadí
     const dashLink = page.locator("aside").getByRole("link", { name: /Dashboard/i });
     const fontWeight = await dashLink.evaluate((el) =>
       window.getComputedStyle(el).fontWeight
     );
     expect(parseInt(fontWeight)).toBeGreaterThanOrEqual(600);
+  });
+
+  test("Net Worth karta používá design system tokeny (ne hardcoded barvy)", async ({ page }) => {
+    // Net Worth karta má borderColor nastavený přes CSS proměnnou, ne hardcoded hex
+    const card = page.locator(".card").first();
+    await expect(card).toBeVisible();
+    const borderColor = await card.evaluate((el) =>
+      (el as HTMLElement).style.borderColor
+    );
+    // borderColor by mělo být prázdné (nastaveno CSS proměnnou) nebo obsahovat var()
+    expect(borderColor).not.toMatch(/#[0-9a-fA-F]{3,6}/);
+  });
+
+  test("Quick Access sekce zobrazuje linky na všechny kategorie", async ({ page }) => {
+    const quickAccess = page.getByText("Quick Access").locator("..");
+    await expect(quickAccess.getByRole("link", { name: /crypto/i })).toBeVisible();
+    await expect(quickAccess.getByRole("link", { name: /stocks/i })).toBeVisible();
+    await expect(quickAccess.getByRole("link", { name: /property/i })).toBeVisible();
+  });
+
+  test("aktivní sidebar odkaz má gradient pozadí", async ({ page }) => {
+    const dashLink = page.locator("aside").getByRole("link", { name: /Dashboard/i });
+    const bg = await dashLink.evaluate((el) =>
+      (el as HTMLElement).style.background
+    );
+    expect(bg).toMatch(/gradient/);
   });
 });

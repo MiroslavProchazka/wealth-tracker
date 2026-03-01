@@ -139,7 +139,9 @@ export default function Sidebar() {
                 fontSize: "0.875rem",
                 fontWeight: active ? 600 : 400,
                 color: active ? "var(--text)" : "var(--text-2)",
-                background: active ? "var(--surface-2)" : "transparent",
+                background: active
+                  ? "linear-gradient(90deg, var(--accent-bg) 0%, transparent 100%)"
+                  : "transparent",
                 textDecoration: "none",
                 transition: "all 0.13s ease",
                 position: "relative",
@@ -150,11 +152,11 @@ export default function Sidebar() {
                 <span style={{
                   position: "absolute",
                   left: 0,
-                  top: "25%",
-                  bottom: "25%",
+                  top: "20%",
+                  bottom: "20%",
                   width: "3px",
                   borderRadius: "0 3px 3px 0",
-                  background: "var(--accent)",
+                  background: "linear-gradient(180deg, var(--accent) 0%, var(--accent-2) 100%)",
                 }} />
               )}
               <span style={{
@@ -172,25 +174,32 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Footer */}
+      {/* Footer — sync status pill */}
       <div style={{
         padding: "1rem 1.25rem",
         borderTop: "1px solid var(--border)",
-        display: "flex",
-        alignItems: "center",
-        gap: "0.4rem",
       }}>
-        <span style={{
-          width: "6px",
-          height: "6px",
-          borderRadius: "50%",
-          background: "var(--green)",
-          display: "inline-block",
-          boxShadow: "0 0 6px var(--green)",
-        }} />
-        <span style={{ fontSize: "0.7rem", color: "var(--text-3)", letterSpacing: "0.02em" }}>
-          Synced · Private
-        </span>
+        <div style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "0.4rem",
+          padding: "0.3rem 0.7rem",
+          borderRadius: "20px",
+          background: "rgba(34, 197, 94, 0.08)",
+          border: "1px solid rgba(34, 197, 94, 0.15)",
+        }}>
+          <span style={{
+            width: "5px",
+            height: "5px",
+            borderRadius: "50%",
+            background: "var(--green)",
+            display: "inline-block",
+            boxShadow: "0 0 6px var(--green)",
+          }} />
+          <span style={{ fontSize: "0.7rem", color: "var(--green)", fontWeight: 500, letterSpacing: "0.02em" }}>
+            Synced via Evolu
+          </span>
+        </div>
       </div>
     </aside>
   );
