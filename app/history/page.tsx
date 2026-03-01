@@ -18,7 +18,6 @@ export default function HistoryPage() {
   const stockQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("stockHolding").select(["shares"]).where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue)), [evolu]);
   const propertyQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("property").select(["estimatedValue", "remainingLoan"]).where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue)), [evolu]);
   const savingsQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("savingsAccount").select(["balance"]).where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue)), [evolu]);
-  const bankQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("bankAccount").select(["balance"]).where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue)), [evolu]);
   const recQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("receivable").select(["amount", "status"]).where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue)), [evolu]);
   const snapshotQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("netWorthSnapshot").selectAll().where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue).orderBy("snapshotDate", "asc")), [evolu]);
 
@@ -26,7 +25,6 @@ export default function HistoryPage() {
   const stocks = useQuery(stockQ);
   const properties = useQuery(propertyQ);
   const savings = useQuery(savingsQ);
-  const accounts = useQuery(bankQ);
   const receivables = useQuery(recQ);
   const snapshots = useQuery(snapshotQ);
 
@@ -35,14 +33,13 @@ export default function HistoryPage() {
   const propertyValue = properties.reduce((s, p) => s + (p.estimatedValue as number), 0);
   const mortgageDebt = properties.reduce((s, p) => s + ((p.remainingLoan as number) ?? 0), 0);
   const savingsValue = savings.reduce((s, sv) => s + (sv.balance as number), 0);
-  const bankValue = accounts.reduce((s, a) => s + (a.balance as number), 0);
   const receivablesValue = receivables.filter((r) => String(r.status) !== "PAID").reduce((s, r) => s + (r.amount as number), 0);
 
-  const currentNetWorth = cryptoValue + stocksValue + propertyValue + savingsValue + bankValue + receivablesValue - mortgageDebt;
+  const currentNetWorth = cryptoValue + stocksValue + propertyValue + savingsValue + receivablesValue - mortgageDebt;
 
   function takeSnapshot() {
     setSnapping(true);
-    const totalAssets = cryptoValue + stocksValue + propertyValue + savingsValue + bankValue + receivablesValue;
+    const totalAssets = cryptoValue + stocksValue + propertyValue + savingsValue + receivablesValue;
     const totalLiabilities = mortgageDebt;
     const netWorth = totalAssets - totalLiabilities;
     evolu.insert("netWorthSnapshot", {
@@ -54,7 +51,6 @@ export default function HistoryPage() {
       stocksValue,
       propertyValue,
       savingsValue,
-      bankValue,
       receivablesValue,
       deleted: Evolu.sqliteFalse,
     } as never);
@@ -70,7 +66,6 @@ export default function HistoryPage() {
     Stocks: Math.round(s.stocksValue as number),
     Property: Math.round(s.propertyValue as number),
     Savings: Math.round(s.savingsValue as number),
-    Bank: Math.round(s.bankValue as number),
     Receivables: Math.round(s.receivablesValue as number),
   }));
 
@@ -142,7 +137,6 @@ export default function HistoryPage() {
               <Legend wrapperStyle={{ color: "#64748b", fontSize: "0.8rem" }} />
               <Bar dataKey="Property" stackId="a" fill="#8b5cf6" radius={[0,0,0,0]} />
               <Bar dataKey="Savings" stackId="a" fill="#10b981" />
-              <Bar dataKey="Bank" stackId="a" fill="#3b82f6" />
               <Bar dataKey="Stocks" stackId="a" fill="#f59e0b" />
               <Bar dataKey="Crypto" stackId="a" fill="#f97316" />
               <Bar dataKey="Receivables" stackId="a" fill="#06b6d4" radius={[4,4,0,0]} />

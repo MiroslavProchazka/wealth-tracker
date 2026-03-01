@@ -85,31 +85,6 @@ model SavingsAccount {
   updatedAt    DateTime @updatedAt
 }
 
-// ─── Bank Accounts ────────────────────────────────────────────────────────────
-model BankAccount {
-  id        String   @id @default(cuid())
-  name      String   // e.g. "Revolut EUR"
-  bank      String
-  balance   Float
-  currency  String   @default("CZK")
-  iban      String?
-  notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// ─── Financial Goals ──────────────────────────────────────────────────────────
-model Goal {
-  id          String    @id @default(cuid())
-  name        String
-  targetAmount Float
-  currency    String    @default("CZK")
-  deadline    DateTime?
-  notes       String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-}
-
 // ─── Net Worth Snapshots (for historical charts) ───────────────────────────────
 model NetWorthSnapshot {
   id            String   @id @default(cuid())
@@ -121,7 +96,6 @@ model NetWorthSnapshot {
   stocksValue   Float    @default(0)
   propertyValue Float    @default(0)
   savingsValue  Float    @default(0)
-  bankValue     Float    @default(0)
   receivablesValue Float @default(0)
   currency      String   @default("CZK")
 }
