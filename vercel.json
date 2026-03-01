@@ -22,7 +22,7 @@
     "deploymentEnabled": {
       "main": true,
       "staging": true,
-      "develop": false
+      "develop": true
     }
   }
 }
