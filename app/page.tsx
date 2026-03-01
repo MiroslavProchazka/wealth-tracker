@@ -7,6 +7,17 @@ import { useEvolu } from "@/lib/evolu";
 import { formatCurrency } from "@/lib/currencies";
 import StatCard from "@/components/StatCard";
 import Link from "next/link";
+import {
+  ArrowUp,
+  ArrowDown,
+  Landmark,
+  Briefcase,
+  Coins,
+  TrendingUp,
+  Home,
+  Receipt,
+  BarChart3,
+} from "lucide-react";
 
 export default function Dashboard() {
   const evolu = useEvolu();
@@ -120,30 +131,114 @@ export default function Dashboard() {
   ].filter((i) => i.value > 0);
   const total = allocationItems.reduce((s, i) => s + i.value, 0) || 1;
 
+  const quickItems = [
+    { href: "/crypto",      icon: <Coins size={14} />,     label: "Crypto",      count: cryptos.length },
+    { href: "/stocks",      icon: <TrendingUp size={14} />, label: "Stocks",      count: stocks.length },
+    { href: "/property",    icon: <Home size={14} />,       label: "Property",    count: properties.length },
+    { href: "/receivables", icon: <Receipt size={14} />,    label: "Receivables", count: receivables.filter((r) => String(r.status) !== "PAID").length },
+    { href: "/savings",     icon: <Landmark size={14} />,   label: "Savings",     count: null },
+    { href: "/history",     icon: <BarChart3 size={14} />,  label: "History",     count: null },
+  ];
+
   return (
     <div>
       <div style={{ marginBottom: "2rem" }}>
-        <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 700 }}>Dashboard</h1>
+        <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 700, letterSpacing: "-0.025em" }}>Dashboard</h1>
         <p style={{ color: "var(--muted)", margin: "0.35rem 0 0", fontSize: "0.875rem" }}>
           {new Date().toLocaleDateString("cs-CZ", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
         </p>
       </div>
 
-      <div className="card" style={{ marginBottom: "1.5rem", background: "linear-gradient(135deg, #1a1f2e 0%, #1e2a3a 100%)", borderColor: "#2d4a6e" }}>
+      {/* ── Net Worth hero card ─────────────────────────────────── */}
+      <div
+        className="card"
+        style={{
+          marginBottom: "1.5rem",
+          background: "linear-gradient(135deg, var(--surface) 0%, var(--surface-3) 100%)",
+          borderColor: "var(--accent-glow)",
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
+        {/* Decorative radial glow */}
+        <div style={{
+          position: "absolute",
+          top: "-50px",
+          right: "-50px",
+          width: "200px",
+          height: "200px",
+          background: "radial-gradient(circle, var(--accent-glow) 0%, transparent 70%)",
+          pointerEvents: "none",
+        }} />
+
         <div style={{ fontSize: "0.75rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>Net Worth</div>
-        <div style={{ fontSize: "3rem", fontWeight: 800, color: "var(--foreground)", margin: "0.5rem 0" }}>{formatCurrency(netWorth, "CZK")}</div>
-        {change !== 0 && <div style={{ fontSize: "0.9rem", color: change >= 0 ? "var(--green)" : "var(--red)" }}>{change >= 0 ? "▲" : "▼"} {formatCurrency(Math.abs(change), "CZK")} since last snapshot</div>}
-        {change === 0 && <div style={{ fontSize: "0.8rem", color: "var(--muted)" }}>Take a snapshot in <Link href="/history" style={{ color: "var(--accent)" }}>History</Link> to track changes over time</div>}
+        <div style={{
+          fontSize: "3rem",
+          fontWeight: 800,
+          color: "var(--foreground)",
+          margin: "0.5rem 0",
+          letterSpacing: "-0.03em",
+          lineHeight: 1.1,
+          fontFeatureSettings: '"tnum"',
+          fontVariantNumeric: "tabular-nums",
+        }}>
+          {formatCurrency(netWorth, "CZK")}
+        </div>
+        {change !== 0 && (
+          <div style={{
+            fontSize: "0.9rem",
+            color: change >= 0 ? "var(--green)" : "var(--red)",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.3rem",
+          }}>
+            {change >= 0
+              ? <ArrowUp size={14} />
+              : <ArrowDown size={14} />
+            }
+            {formatCurrency(Math.abs(change), "CZK")} od posledního snapshotu
+          </div>
+        )}
+        {change === 0 && (
+          <div style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
+            Uložte snapshot v <Link href="/history" style={{ color: "var(--accent)" }}>History</Link> pro sledování vývoje
+          </div>
+        )}
       </div>
 
+      {/* ── Stat cards ─────────────────────────────────────────── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
-        <StatCard label="Total Assets"      value={formatCurrency(totalAssets, "CZK")}      accent="var(--green)" icon="↑" />
-        <StatCard label="Total Liabilities" value={formatCurrency(totalLiabilities, "CZK")} accent="var(--red)"   icon="↓" />
-        <StatCard label="Savings"           value={formatCurrency(savingsValue, "CZK")}     accent="var(--green)" icon="🏦" />
-        <StatCard label="Receivables"       value={formatCurrency(receivablesValue, "CZK")} sub={`${receivables.filter((r) => String(r.status) !== "PAID").length} pending`} accent="var(--yellow)" icon="💼" />
+        <StatCard
+          label="Total Assets"
+          value={formatCurrency(totalAssets, "CZK")}
+          accent="var(--green)"
+          icon={<ArrowUp size={16} />}
+        />
+        <StatCard
+          label="Total Liabilities"
+          value={formatCurrency(totalLiabilities, "CZK")}
+          accent="var(--red)"
+          icon={<ArrowDown size={16} />}
+        />
+        <StatCard
+          label="Savings"
+          value={formatCurrency(savingsValue, "CZK")}
+          accent="var(--green)"
+          icon={<Landmark size={16} />}
+        />
+        <StatCard
+          label="Receivables"
+          value={formatCurrency(receivablesValue, "CZK")}
+          sub={`${receivables.filter((r) => String(r.status) !== "PAID").length} pending`}
+          accent="var(--yellow)"
+          icon={<Briefcase size={16} />}
+        />
       </div>
 
+      {/* ── Bottom row ─────────────────────────────────────────── */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }}>
+
+        {/* Asset Allocation */}
         <div className="card">
           <h2 style={{ margin: "0 0 1.25rem", fontSize: "1rem", fontWeight: 700 }}>Asset Allocation</h2>
           {allocationItems.length === 0 ? (
@@ -157,13 +252,13 @@ export default function Dashboard() {
                     <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <span style={{ fontSize: "0.8rem", color: "var(--foreground)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                          <span style={{ display: "inline-block", width: "10px", height: "10px", borderRadius: "50%", background: item.color }} />
+                          <span style={{ display: "inline-block", width: "8px", height: "8px", borderRadius: "50%", background: item.color, boxShadow: `0 0 6px ${item.color}80` }} />
                           {item.label}
                         </span>
-                        <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>{formatCurrency(item.value, "CZK")} · {pct.toFixed(1)}%</span>
+                        <span style={{ fontSize: "0.8rem", color: "var(--muted)", fontFeatureSettings: '"tnum"' }}>{formatCurrency(item.value, "CZK")} · {pct.toFixed(1)}%</span>
                       </div>
-                      <div style={{ height: "6px", background: "var(--card-border)", borderRadius: "3px" }}>
-                        <div style={{ height: "100%", background: item.color, borderRadius: "3px", width: `${pct}%` }} />
+                      <div style={{ height: "4px", background: "var(--surface-3)", borderRadius: "2px" }}>
+                        <div style={{ height: "100%", background: `linear-gradient(90deg, ${item.color} 0%, ${item.color}88 100%)`, borderRadius: "2px", width: `${pct}%`, transition: "width 0.3s ease" }} />
                       </div>
                     </div>
                   </Link>
@@ -173,21 +268,44 @@ export default function Dashboard() {
           )}
         </div>
 
+        {/* Quick Access */}
         <div className="card">
           <h2 style={{ margin: "0 0 1.25rem", fontSize: "1rem", fontWeight: 700 }}>Quick Access</h2>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-            {[
-              { href: "/crypto",      icon: "₿",  label: "Crypto",      count: cryptos.length },
-              { href: "/stocks",      icon: "📈", label: "Stocks",      count: stocks.length },
-              { href: "/property",    icon: "🏠", label: "Property",    count: properties.length },
-              { href: "/receivables", icon: "💼", label: "Receivables", count: receivables.filter((r) => String(r.status) !== "PAID").length },
-              { href: "/savings",     icon: "🏦", label: "Savings",     count: null },
-              { href: "/history",     icon: "📊", label: "History",     count: null },
-            ].map((item) => (
-              <Link key={item.href} href={item.href} style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.75rem", borderRadius: "8px", background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.15)", textDecoration: "none", color: "var(--foreground)", fontSize: "0.8rem" }}>
-                <span>{item.icon}</span>
+            {quickItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  padding: "0.75rem",
+                  borderRadius: "8px",
+                  background: "var(--surface-2)",
+                  border: "1px solid var(--border)",
+                  textDecoration: "none",
+                  color: "var(--text-2)",
+                  fontSize: "0.8rem",
+                  transition: "all 0.15s ease",
+                  fontWeight: 500,
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLAnchorElement).style.borderColor = "var(--border-2)";
+                  (e.currentTarget as HTMLAnchorElement).style.color = "var(--text)";
+                  (e.currentTarget as HTMLAnchorElement).style.background = "var(--surface-3)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLAnchorElement).style.borderColor = "var(--border)";
+                  (e.currentTarget as HTMLAnchorElement).style.color = "var(--text-2)";
+                  (e.currentTarget as HTMLAnchorElement).style.background = "var(--surface-2)";
+                }}
+              >
+                <span style={{ color: "var(--text-3)", display: "flex", alignItems: "center" }}>{item.icon}</span>
                 <span>{item.label}</span>
-                {item.count !== null && item.count > 0 && <span style={{ marginLeft: "auto", fontSize: "0.7rem", color: "var(--muted)" }}>{item.count}</span>}
+                {item.count !== null && item.count > 0 && (
+                  <span style={{ marginLeft: "auto", fontSize: "0.7rem", color: "var(--text-3)", fontFeatureSettings: '"tnum"' }}>{item.count}</span>
+                )}
               </Link>
             ))}
           </div>

@@ -1,10 +1,12 @@
+import { ReactNode } from "react";
+
 interface StatCardProps {
   label: string;
   value: string;
   sub?: string;
   subPositive?: boolean;
   accent?: string;
-  icon?: string;
+  icon?: ReactNode;
 }
 
 export default function StatCard({ label, value, sub, subPositive, accent, icon }: StatCardProps) {
@@ -25,8 +27,8 @@ export default function StatCard({ label, value, sub, subPositive, accent, icon 
           right: "1.25rem",
           height: "2px",
           borderRadius: "0 0 2px 2px",
-          background: accent,
-          opacity: 0.8,
+          background: `linear-gradient(90deg, ${accent} 0%, transparent 100%)`,
+          opacity: 0.9,
         }} />
       )}
 
@@ -48,6 +50,8 @@ export default function StatCard({ label, value, sub, subPositive, accent, icon 
             color: "var(--text)",
             letterSpacing: "-0.02em",
             lineHeight: 1.2,
+            fontFeatureSettings: '"tnum"',
+            fontVariantNumeric: "tabular-nums",
           }}>
             {value}
           </div>
@@ -81,11 +85,14 @@ export default function StatCard({ label, value, sub, subPositive, accent, icon 
             width: "36px",
             height: "36px",
             borderRadius: "10px",
-            background: accent ? `${accent}18` : "var(--surface-2)",
+            background: accent
+              ? `linear-gradient(135deg, ${accent}20 0%, ${accent}08 100%)`
+              : "var(--surface-2)",
+            border: accent ? `1px solid ${accent}25` : "1px solid var(--border)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontSize: "1.1rem",
+            fontSize: "1rem",
             flexShrink: 0,
             marginLeft: "0.75rem",
           }}>

@@ -25,6 +25,19 @@ describe("Sidebar", () => {
       render(<Sidebar />);
       expect(screen.getByText(/Synced/)).toBeInTheDocument();
     });
+
+    it("footer zobrazí 'Synced via Evolu'", () => {
+      mockUsePathname.mockReturnValue("/");
+      render(<Sidebar />);
+      expect(screen.getByText("Synced via Evolu")).toBeInTheDocument();
+    });
+
+    it("footer sync status má zelený text", () => {
+      mockUsePathname.mockReturnValue("/");
+      render(<Sidebar />);
+      const syncText = screen.getByText("Synced via Evolu");
+      expect(syncText).toHaveStyle({ color: "var(--green)" });
+    });
   });
 
   describe("navigační položky", () => {
@@ -50,7 +63,6 @@ describe("Sidebar", () => {
 
     it.each(navItems)("$label má href '$href'", ({ href }) => {
       render(<Sidebar />);
-      // Hledáme přes href — vyhne se ambiguitě "Account" vs "Bank Accounts"
       const links = screen.getAllByRole("link");
       const link = links.find((el) => el.getAttribute("href") === href);
       expect(link).toBeDefined();
@@ -89,11 +101,14 @@ describe("Sidebar", () => {
       expect(cryptoLink).toHaveStyle({ fontWeight: 400 });
     });
 
-    it("aktivní odkaz má zvýrazněné pozadí", () => {
+    it("aktivní odkaz má gradient pozadí (zvýrazněno)", () => {
       mockUsePathname.mockReturnValue("/stocks");
       render(<Sidebar />);
       const stocksLink = screen.getByRole("link", { name: /Stocks/ });
-      expect(stocksLink).toHaveStyle({ background: "var(--surface-2)" });
+      const bg = (stocksLink as HTMLElement).style.background;
+      expect(bg).toBeTruthy();
+      expect(bg).not.toBe("transparent");
+      expect(bg).toMatch(/gradient/);
     });
 
     it("neaktivní odkaz má transparentní pozadí", () => {
