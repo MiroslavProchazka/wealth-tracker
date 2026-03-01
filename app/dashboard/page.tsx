@@ -1,6 +1,6 @@
-import { redirect } from "next/navigation";
+import { permanentRedirect } from "next/navigation";
 
-// /dashboard is an alias for the root dashboard at /
+// /dashboard is a permanent alias for the root dashboard at /
 export default function DashboardAlias() {
-  redirect("/");
+  permanentRedirect("/");
 }
