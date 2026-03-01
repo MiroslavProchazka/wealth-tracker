@@ -10,6 +10,15 @@ const nextConfig: NextConfig = {
     "@evolu/sqlite-wasm",
     "@evolu/web",
   ],
+  async redirects() {
+    return [
+      {
+        source: "/dashboard",
+        destination: "/",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {
