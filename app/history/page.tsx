@@ -52,6 +52,7 @@ export default function HistoryPage() {
       propertyValue,
       savingsValue,
       receivablesValue,
+      schemaVersion: 1 as never,
       deleted: Evolu.sqliteFalse,
     } as never);
     setSnapping(false);
