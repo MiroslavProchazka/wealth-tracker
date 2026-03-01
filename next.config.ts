@@ -28,26 +28,7 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  webpack(config, { isServer }) {
-    if (!isServer) {
-      // Fix WASM loading for Evolu's sqlite-wasm in Web Workers.
-      //
-      // Problem: webpack replaces `import.meta.url` at compile time with
-      // publicPath + moduleFilename. With Next.js default publicPath='/_next/'
-      // (relative), workers can't resolve WASM via `new URL('sqlite3.wasm',
-      // import.meta.url)` — there's no origin to resolve against.
-      //
-      // Fix: workerPublicPath='auto' makes webpack inject runtime code that
-      // reads `self.location` inside Web Workers to compute the absolute public
-      // path. This way import.meta.url is always an absolute URL inside workers
-      // and WASM loading works. Unlike setting publicPath='auto' globally,
-      // this leaves the main-thread publicPath untouched so Next.js can
-      // correctly resolve JS chunk URLs (avoiding 404s from wrong base paths).
-      config.output ??= {};
-      config.output.workerPublicPath = "auto";
-    }
-    return config;
-  },
+
 };
 
 export default nextConfig;
