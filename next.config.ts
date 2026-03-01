@@ -37,11 +37,13 @@ const nextConfig: NextConfig = {
       // (relative), workers can't resolve WASM via `new URL('sqlite3.wasm',
       // import.meta.url)` — there's no origin to resolve against.
       //
-      // Fix: publicPath='auto' makes webpack inject runtime code that reads
-      // `self.location` (worker) or `document.currentScript.src` (main thread)
-      // to compute the absolute public path. This way import.meta.url is always
-      // an absolute URL and WASM loading works without any URL doubling.
-      config.output.publicPath = "auto";
+      // Fix: workerPublicPath='auto' makes webpack inject runtime code that
+      // reads `self.location` inside Web Workers to compute the absolute public
+      // path. This way import.meta.url is always an absolute URL inside workers
+      // and WASM loading works. Unlike setting publicPath='auto' globally,
+      // this leaves the main-thread publicPath untouched so Next.js can
+      // correctly resolve JS chunk URLs (avoiding 404s from wrong base paths).
+      config.output.workerPublicPath = "auto";
     }
     return config;
   },
