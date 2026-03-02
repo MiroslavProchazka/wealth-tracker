@@ -45,10 +45,10 @@ describe("Sidebar", () => {
       mockUsePathname.mockReturnValue("/");
     });
 
-    it("renderuje přesně 7 navigačních odkazů", () => {
+    it("renderuje přesně 14 navigačních odkazů (7 desktop + 7 mobile)", () => {
       render(<Sidebar />);
       const links = screen.getAllByRole("link");
-      expect(links).toHaveLength(7);
+      expect(links).toHaveLength(14);
     });
 
     const navItems = [
@@ -74,29 +74,30 @@ describe("Sidebar", () => {
     it("aktivní odkaz má vyšší fontWeight (600)", () => {
       mockUsePathname.mockReturnValue("/crypto");
       render(<Sidebar />);
-      const cryptoLink = screen.getByRole("link", { name: /Crypto/ });
+      // Sidebar renderuje linky dvakrát (desktop + mobile) — bereme první (desktop)
+      const cryptoLink = screen.getAllByRole("link", { name: /Crypto/ })[0];
       expect(cryptoLink).toHaveStyle({ fontWeight: 600 });
     });
 
     it("neaktivní odkaz má fontWeight 400", () => {
       mockUsePathname.mockReturnValue("/crypto");
       render(<Sidebar />);
-      const dashLink = screen.getByRole("link", { name: /Dashboard/ });
+      const dashLink = screen.getAllByRole("link", { name: /Dashboard/ })[0];
       expect(dashLink).toHaveStyle({ fontWeight: 400 });
     });
 
     it("Dashboard aktivní na '/'", () => {
       mockUsePathname.mockReturnValue("/");
       render(<Sidebar />);
-      const dashLink = screen.getByRole("link", { name: /Dashboard/ });
+      const dashLink = screen.getAllByRole("link", { name: /Dashboard/ })[0];
       expect(dashLink).toHaveStyle({ fontWeight: 600 });
     });
 
     it("na /property je aktivní pouze Property", () => {
       mockUsePathname.mockReturnValue("/property");
       render(<Sidebar />);
-      const propertyLink = screen.getByRole("link", { name: /Property/ });
-      const cryptoLink = screen.getByRole("link", { name: /Crypto/ });
+      const propertyLink = screen.getAllByRole("link", { name: /Property/ })[0];
+      const cryptoLink = screen.getAllByRole("link", { name: /Crypto/ })[0];
       expect(propertyLink).toHaveStyle({ fontWeight: 600 });
       expect(cryptoLink).toHaveStyle({ fontWeight: 400 });
     });
@@ -104,7 +105,7 @@ describe("Sidebar", () => {
     it("aktivní odkaz má gradient pozadí (zvýrazněno)", () => {
       mockUsePathname.mockReturnValue("/stocks");
       render(<Sidebar />);
-      const stocksLink = screen.getByRole("link", { name: /Stocks/ });
+      const stocksLink = screen.getAllByRole("link", { name: /Stocks/ })[0];
       const bg = (stocksLink as HTMLElement).style.background;
       expect(bg).toBeTruthy();
       expect(bg).not.toBe("transparent");
@@ -114,7 +115,7 @@ describe("Sidebar", () => {
     it("neaktivní odkaz má transparentní pozadí", () => {
       mockUsePathname.mockReturnValue("/stocks");
       render(<Sidebar />);
-      const cryptoLink = screen.getByRole("link", { name: /Crypto/ });
+      const cryptoLink = screen.getAllByRole("link", { name: /Crypto/ })[0];
       expect(cryptoLink).toHaveStyle({ background: "transparent" });
     });
   });
@@ -126,8 +127,9 @@ describe("Sidebar", () => {
 
     it("každý nav item má SVG ikonu", () => {
       render(<Sidebar />);
+      // 2 nav elementy (desktop + mobile), každý má 7 SVG ikon → celkem 14
       const svgs = document.querySelectorAll("nav svg");
-      expect(svgs.length).toBe(7);
+      expect(svgs.length).toBe(14);
     });
 
     it("SVG ikony mají správné rozměry (16×16)", () => {
