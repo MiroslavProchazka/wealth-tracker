@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import React from "react";
 
 /* ── Inline SVG icons (16×16, stroke-based) ─────────────────── */
 const Icons = {
@@ -72,7 +73,9 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
+    <React.Fragment>
     <aside
+      className="sidebar-desktop"
       style={{
         width: "224px",
         minHeight: "100vh",
@@ -202,5 +205,23 @@ export default function Sidebar() {
         </div>
       </div>
     </aside>
+
+    {/* ── Mobile bottom navigation ─────────────────────────── */}
+    <nav className="mobile-nav">
+      {NAV_ITEMS.map((item) => {
+        const active = pathname === item.href;
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={active ? "active" : ""}
+          >
+            <span className="icon">{item.icon}</span>
+            <span>{item.label}</span>
+          </Link>
+        );
+      })}
+    </nav>
+    </React.Fragment>
   );
 }

@@ -38,13 +38,16 @@ export default function RootLayout({
             EvoluNoSSR wrapper so it renders immediately on first paint. */}
         <Sidebar />
         <EvoluNoSSR>
-          <main style={{
-            flex: 1,
-            padding: "2rem 2.5rem",
-            maxWidth: "1400px",
-            overflowX: "hidden",
-            minWidth: 0,
-          }}>
+          <main
+            className="main-content"
+            style={{
+              flex: 1,
+              padding: "2rem 2.5rem",
+              maxWidth: "1400px",
+              overflowX: "hidden",
+              minWidth: 0,
+            }}
+          >
             {children}
           </main>
         </EvoluNoSSR>
