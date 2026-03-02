@@ -11,12 +11,12 @@ import {
   ArrowUp,
   ArrowDown,
   Landmark,
-  Briefcase,
+  Bitcoin,
   Coins,
   TrendingUp,
   Home,
-  Receipt,
   BarChart3,
+  Settings,
 } from "lucide-react";
 
 export default function Dashboard() {
@@ -66,17 +66,6 @@ export default function Dashboard() {
       ),
     [evolu],
   );
-  const receivableQ = useMemo(
-    () =>
-      evolu.createQuery((db) =>
-        db
-          .selectFrom("receivable")
-          .select(["amount", "status"])
-          .where("isDeleted", "is not", Evolu.sqliteTrue)
-          .where("deleted", "is not", Evolu.sqliteTrue),
-      ),
-    [evolu],
-  );
   const savingsQ = useMemo(
     () =>
       evolu.createQuery((db) =>
@@ -105,7 +94,6 @@ export default function Dashboard() {
   const cryptos = useQuery(cryptoQ);
   const stocks = useQuery(stockQ);
   const properties = useQuery(propertyQ);
-  const receivables = useQuery(receivableQ);
   const savings = useQuery(savingsQ);
   const snapshots = useQuery(snapshotQ);
 
@@ -168,13 +156,10 @@ export default function Dashboard() {
     (s, p) => s + ((p.remainingLoan as number) ?? 0),
     0,
   );
-  const receivablesValue = receivables
-    .filter((r) => String(r.status) !== "PAID")
-    .reduce((s, r) => s + (r.amount as number), 0);
   const savingsValue = savings.reduce((s, sv) => s + (sv.balance as number), 0);
 
   const totalAssets =
-    cryptoValue + stocksValue + propertyValue + receivablesValue + savingsValue;
+    cryptoValue + stocksValue + propertyValue + savingsValue;
   const totalLiabilities = mortgageDebt;
   const netWorth = totalAssets - totalLiabilities;
   const prevSnapshot = snapshots[1];
@@ -203,12 +188,6 @@ export default function Dashboard() {
     },
     { label: "Stocks", value: stocksValue, color: "#f59e0b", href: "/stocks" },
     { label: "Crypto", value: cryptoValue, color: "#f97316", href: "/crypto" },
-    {
-      label: "Receivables",
-      value: receivablesValue,
-      color: "#06b6d4",
-      href: "/receivables",
-    },
   ].filter((i) => i.value > 0);
   const total = allocationItems.reduce((s, i) => s + i.value, 0) || 1;
 
@@ -232,12 +211,6 @@ export default function Dashboard() {
       count: properties.length,
     },
     {
-      href: "/receivables",
-      icon: <Receipt size={14} />,
-      label: "Receivables",
-      count: receivables.filter((r) => String(r.status) !== "PAID").length,
-    },
-    {
       href: "/savings",
       icon: <Landmark size={14} />,
       label: "Savings",
@@ -247,6 +220,12 @@ export default function Dashboard() {
       href: "/history",
       icon: <BarChart3 size={14} />,
       label: "History",
+      count: null,
+    },
+    {
+      href: "/settings",
+      icon: <Settings size={14} />,
+      label: "Account",
       count: null,
     },
   ];
@@ -393,11 +372,11 @@ export default function Dashboard() {
           icon={<Landmark size={16} />}
         />
         <StatCard
-          label="Receivables"
-          value={formatCurrency(receivablesValue, "CZK")}
-          sub={`${receivables.filter((r) => String(r.status) !== "PAID").length} pending`}
-          accent="var(--yellow)"
-          icon={<Briefcase size={16} />}
+          label="Crypto"
+          value={formatCurrency(cryptoValue, "CZK")}
+          sub={`${cryptos.length} assets`}
+          accent="#f97316"
+          icon={<Bitcoin size={16} />}
         />
       </div>
 
