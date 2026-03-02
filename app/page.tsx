@@ -30,12 +30,6 @@ export default function Dashboard() {
     .where("isDeleted", "is not", Evolu.sqliteTrue)
     .where("deleted", "is not", Evolu.sqliteTrue)
   ), [evolu]);
-  const receivableQ = useMemo(() => evolu.createQuery((db) => db
-    .selectFrom("receivable")
-    .select(["amount", "status"])
-    .where("isDeleted", "is not", Evolu.sqliteTrue)
-    .where("deleted", "is not", Evolu.sqliteTrue)
-  ), [evolu]);
   const savingsQ = useMemo(() => evolu.createQuery((db) => db
     .selectFrom("savingsAccount")
     .select(["balance"])
@@ -54,7 +48,6 @@ export default function Dashboard() {
   const cryptos    = useQuery(cryptoQ);
   const stocks     = useQuery(stockQ);
   const properties = useQuery(propertyQ);
-  const receivables = useQuery(receivableQ);
   const savings    = useQuery(savingsQ);
   const snapshots  = useQuery(snapshotQ);
 
@@ -95,12 +88,9 @@ export default function Dashboard() {
 
   const propertyValue    = properties.reduce((s, p) => s + (p.estimatedValue as number), 0);
   const mortgageDebt     = properties.reduce((s, p) => s + ((p.remainingLoan as number) ?? 0), 0);
-  const receivablesValue = receivables
-    .filter((r) => String(r.status) !== "PAID")
-    .reduce((s, r) => s + (r.amount as number), 0);
   const savingsValue     = savings.reduce((s, sv) => s + (sv.balance as number), 0);
 
-  const totalAssets      = cryptoValue + stocksValue + propertyValue + receivablesValue + savingsValue;
+  const totalAssets      = cryptoValue + stocksValue + propertyValue + savingsValue;
   const totalLiabilities = mortgageDebt;
   const netWorth         = totalAssets - totalLiabilities;
   const prevSnapshot     = snapshots[1];
@@ -116,7 +106,6 @@ export default function Dashboard() {
     { label: "Savings",     value: savingsValue,    color: "#10b981", href: "/savings" },
     { label: "Stocks",      value: stocksValue,     color: "#f59e0b", href: "/stocks" },
     { label: "Crypto",      value: cryptoValue,     color: "#f97316", href: "/crypto" },
-    { label: "Receivables", value: receivablesValue,color: "#06b6d4", href: "/receivables" },
   ].filter((i) => i.value > 0);
   const total = allocationItems.reduce((s, i) => s + i.value, 0) || 1;
 
@@ -136,11 +125,11 @@ export default function Dashboard() {
         {change === 0 && <div style={{ fontSize: "0.8rem", color: "var(--muted)" }}>Take a snapshot in <Link href="/history" style={{ color: "var(--accent)" }}>History</Link> to track changes over time</div>}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
-        <StatCard label="Total Assets"      value={formatCurrency(totalAssets, "CZK")}      accent="var(--green)" icon="↑" />
-        <StatCard label="Total Liabilities" value={formatCurrency(totalLiabilities, "CZK")} accent="var(--red)"   icon="↓" />
-        <StatCard label="Savings"           value={formatCurrency(savingsValue, "CZK")}     accent="var(--green)" icon="🏦" />
-        <StatCard label="Receivables"       value={formatCurrency(receivablesValue, "CZK")} sub={`${receivables.filter((r) => String(r.status) !== "PAID").length} pending`} accent="var(--yellow)" icon="💼" />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem", marginBottom: "1.5rem" }}>
+        <StatCard label="Total Assets"      value={formatCurrency(totalAssets, "CZK")}      accent="var(--green)"  icon="↑" />
+        <StatCard label="Total Liabilities" value={formatCurrency(totalLiabilities, "CZK")} accent="var(--red)"    icon="↓" />
+        <StatCard label="Savings"           value={formatCurrency(savingsValue, "CZK")}      accent="#10b981"       icon="🏦" />
+        <StatCard label="Crypto"            value={formatCurrency(cryptoValue, "CZK")}       sub={`${cryptos.length} assets`} accent="#f97316" icon="₿" />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }}>
@@ -177,12 +166,12 @@ export default function Dashboard() {
           <h2 style={{ margin: "0 0 1.25rem", fontSize: "1rem", fontWeight: 700 }}>Quick Access</h2>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
             {[
-              { href: "/crypto",      icon: "₿",  label: "Crypto",      count: cryptos.length },
-              { href: "/stocks",      icon: "📈", label: "Stocks",      count: stocks.length },
-              { href: "/property",    icon: "🏠", label: "Property",    count: properties.length },
-              { href: "/receivables", icon: "💼", label: "Receivables", count: receivables.filter((r) => String(r.status) !== "PAID").length },
-              { href: "/savings",     icon: "🏦", label: "Savings",     count: null },
-              { href: "/history",     icon: "📊", label: "History",     count: null },
+              { href: "/crypto",   icon: "₿",  label: "Crypto",   count: cryptos.length },
+              { href: "/stocks",   icon: "📈", label: "Stocks",   count: stocks.length },
+              { href: "/property", icon: "🏠", label: "Property", count: properties.length },
+              { href: "/savings",  icon: "🏦", label: "Savings",  count: null },
+              { href: "/history",  icon: "📊", label: "History",  count: null },
+              { href: "/settings", icon: "⚙️", label: "Account",  count: null },
             ].map((item) => (
               <Link key={item.href} href={item.href} style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.75rem", borderRadius: "8px", background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.15)", textDecoration: "none", color: "var(--foreground)", fontSize: "0.8rem" }}>
                 <span>{item.icon}</span>
