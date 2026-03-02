@@ -306,6 +306,7 @@ export default function Dashboard() {
           Net Worth
         </div>
         <div
+          className="net-worth-value"
           style={{
             fontSize: "3rem",
             fontWeight: 800,
@@ -345,14 +346,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── Stat cards ─────────────────────────────────────────── */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-          gap: "1rem",
-          marginBottom: "1.5rem",
-        }}
-      >
+      <div className="stat-grid">
         <StatCard
           label="Total Assets"
           value={formatCurrency(totalAssets, "CZK")}
@@ -381,13 +375,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── Bottom row ─────────────────────────────────────────── */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "1.5rem",
-        }}
-      >
+      <div className="dashboard-bottom">
         {/* Asset Allocation */}
         <div className="card">
           <h2
