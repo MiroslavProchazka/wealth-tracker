@@ -348,10 +348,34 @@ tbody td { padding: 0.8rem 1rem; color: var(--text); }
   margin-bottom: 1.5rem;
 }
 
+/* 4-column stat grid used on crypto/stocks pages */
+.stat-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
 .dashboard-bottom {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1.5rem;
+}
+
+/* Horizontally scrollable table wrapper for mobile */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Page header row (title + action buttons) */
+.page-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.75rem;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -417,6 +441,10 @@ tbody td { padding: 0.8rem 1rem; color: var(--text); }
     grid-template-columns: repeat(2, 1fr);
   }
 
+  .stat-grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
   .dashboard-bottom {
     grid-template-columns: 1fr;
   }
@@ -427,5 +455,15 @@ tbody td { padding: 0.8rem 1rem; color: var(--text); }
 
   .net-worth-value {
     font-size: 2rem !important;
+  }
+
+  .page-header-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .page-header-row > *:last-child {
+    width: 100%;
+    justify-content: flex-start;
   }
 }

@@ -75,7 +75,7 @@ export default function HistoryPage() {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
+      <div className="page-header-row" style={{ marginBottom: "2rem" }}>
         <div>
           <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 700 }}>History & Charts</h1>
           <p style={{ color: "var(--muted)", margin: "0.35rem 0 0", fontSize: "0.875rem" }}>Net worth over time · {snapshots.length} snapshot{snapshots.length !== 1 ? "s" : ""}</p>
@@ -149,6 +149,7 @@ export default function HistoryPage() {
       {snapshots.length > 0 && (
         <div className="card" style={{ padding: 0, overflow: "hidden" }}>
           <div style={{ padding: "1rem 1.5rem", borderBottom: "1px solid var(--card-border)", fontWeight: 700, fontSize: "0.9rem" }}>Snapshot History</div>
+          <div className="table-scroll">
           <table>
             <thead><tr><th>Date</th><th>Net Worth</th><th>Assets</th><th>Liabilities</th><th>Change</th></tr></thead>
             <tbody>
@@ -169,6 +170,7 @@ export default function HistoryPage() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>
