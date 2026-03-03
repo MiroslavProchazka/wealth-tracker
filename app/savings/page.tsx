@@ -74,7 +74,7 @@ export default function SavingsPage() {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
+      <div className="page-header-row" style={{ marginBottom: "2rem" }}>
         <div>
           <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 700 }}>Savings Accounts</h1>
           <p style={{ color: "var(--muted)", margin: "0.35rem 0 0", fontSize: "0.875rem" }}>Savings, spořicí účty, term deposits</p>

@@ -88,7 +88,7 @@ export default function PropertyPage() {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.75rem" }}>
+      <div className="page-header-row">
         <div>
           <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 700 }}>Real Estate</h1>
           <p style={{ color: "var(--muted)", margin: "0.35rem 0 0", fontSize: "0.875rem" }}>Track your property portfolio and mortgage details</p>

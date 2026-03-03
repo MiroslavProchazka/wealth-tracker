@@ -460,7 +460,7 @@ export default function StocksPage() {
       ))}
 
       {/* ── Header ── */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.75rem" }}>
+      <div className="page-header-row">
         <div>
           <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 700 }}>Stock Holdings</h1>
           <p style={{ color: "var(--muted)", margin: "0.35rem 0 0", fontSize: "0.875rem" }}>
@@ -505,7 +505,7 @@ export default function StocksPage() {
       </div>
 
       {/* ── Summary cards ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem", marginBottom: "1.5rem" }}>
+      <div className="stat-grid-4">
         <div className="card" style={{ background: "linear-gradient(135deg, #1a1f2e 0%, #1a201e 100%)", borderColor: "rgba(59,130,246,0.3)" }}>
           <div style={{ fontSize: "0.68rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>Celkem</div>
           <div style={{ fontSize: "1.45rem", fontWeight: 800, color: "#3b82f6" }}>
@@ -583,6 +583,7 @@ export default function StocksPage() {
             <p style={{ margin: "0.5rem 0 0", fontSize: "0.8rem" }}>Přidej první holding · US, EU i CZ akcie · ETF</p>
           </div>
         ) : (
+          <div className="table-scroll">
           <table>
             <thead>
               <tr>
@@ -678,6 +679,7 @@ export default function StocksPage() {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
