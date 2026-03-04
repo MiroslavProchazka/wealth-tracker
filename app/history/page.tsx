@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import * as Evolu from "@evolu/common";
 import { useQuery } from "@evolu/react";
 import { useEvolu } from "@/lib/evolu";
@@ -13,9 +13,13 @@ export default function HistoryPage() {
   const evolu = useEvolu();
   const [snapping, setSnapping] = useState(false);
   const [view, setView] = useState<"networth" | "breakdown">("networth");
+  const [autoSnapped, setAutoSnapped] = useState(false);
+  const [autoSnapshotMsg, setAutoSnapshotMsg] = useState<string | null>(null);
 
-  const cryptoQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("cryptoHolding").select(["amount"]).where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue)), [evolu]);
-  const stockQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("stockHolding").select(["shares"]).where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue)), [evolu]);
+  // ── Queries ──────────────────────────────────────────────────────────────
+  // Include symbol/ticker so we can look up live prices
+  const cryptoQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("cryptoHolding").select(["symbol", "amount"]).where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue)), [evolu]);
+  const stockQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("stockHolding").select(["ticker", "shares", "currency"]).where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue)), [evolu]);
   const propertyQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("property").select(["estimatedValue", "remainingLoan"]).where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue)), [evolu]);
   const savingsQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("savingsAccount").select(["balance"]).where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue)), [evolu]);
   const recQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("receivable").select(["amount", "status"]).where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue)), [evolu]);
@@ -28,8 +32,46 @@ export default function HistoryPage() {
   const receivables = useQuery(recQ);
   const snapshots = useQuery(snapshotQ);
 
-  const cryptoValue = cryptos.reduce((s, c) => s + (c.amount as number), 0);
-  const stocksValue = stocks.reduce((s, st) => s + (st.shares as number), 0);
+  // ── Live prices (same pattern as dashboard) ───────────────────────────────
+  const [cryptoPrices, setCryptoPrices] = useState<Record<string, { czk: number }>>({});
+  const [stockPrices, setStockPrices] = useState<Record<string, { czk: number }>>({});
+  const [cryptoPricesLoaded, setCryptoPricesLoaded] = useState(false);
+  const [stockPricesLoaded, setStockPricesLoaded] = useState(false);
+  const pricesLoaded = cryptoPricesLoaded && stockPricesLoaded;
+
+  useEffect(() => {
+    const symbols = cryptos.map((c) => (c.symbol as string).toUpperCase()).filter(Boolean);
+    if (symbols.length === 0) { setCryptoPricesLoaded(true); return; }
+    fetch(`/api/crypto/prices?symbols=${encodeURIComponent(symbols.join(","))}`)
+      .then((r) => r.json())
+      .then((d) => { if (d.prices) setCryptoPrices(d.prices); })
+      .catch(() => {})
+      .finally(() => setCryptoPricesLoaded(true));
+  }, [cryptos.length]);
+
+  useEffect(() => {
+    const tickers = stocks.map((s) => (s.ticker as string).toUpperCase()).filter(Boolean);
+    if (tickers.length === 0) { setStockPricesLoaded(true); return; }
+    fetch(`/api/stocks/prices?tickers=${encodeURIComponent(tickers.join(","))}`)
+      .then((r) => r.json())
+      .then((d) => { if (d.prices) setStockPrices(d.prices); })
+      .catch(() => {})
+      .finally(() => setStockPricesLoaded(true));
+  }, [stocks.length]);
+
+  // ── Computed values using live prices (same as dashboard) ─────────────────
+  const cryptoValue = cryptos.reduce((s, c) => {
+    const symbol = (c.symbol as string).toUpperCase();
+    const price = cryptoPrices[symbol]?.czk ?? 0;
+    return s + (c.amount as number) * price;
+  }, 0);
+
+  const stocksValue = stocks.reduce((s, st) => {
+    const ticker = (st.ticker as string).toUpperCase();
+    const price = stockPrices[ticker]?.czk ?? 0;
+    return s + (st.shares as number) * price;
+  }, 0);
+
   const propertyValue = properties.reduce((s, p) => s + (p.estimatedValue as number), 0);
   const mortgageDebt = properties.reduce((s, p) => s + ((p.remainingLoan as number) ?? 0), 0);
   const savingsValue = savings.reduce((s, sv) => s + (sv.balance as number), 0);
@@ -37,6 +79,7 @@ export default function HistoryPage() {
 
   const currentNetWorth = cryptoValue + stocksValue + propertyValue + savingsValue + receivablesValue - mortgageDebt;
 
+  // ── Snapshot ──────────────────────────────────────────────────────────────
   function takeSnapshot() {
     setSnapping(true);
     const totalAssets = cryptoValue + stocksValue + propertyValue + savingsValue + receivablesValue;
@@ -58,6 +101,36 @@ export default function HistoryPage() {
     setSnapping(false);
   }
 
+  // ── Weekly auto-snapshot ──────────────────────────────────────────────────
+  // Once prices are loaded, check if it has been ≥7 days since the last snapshot.
+  // If yes, take one automatically so the user never has to remember.
+  useEffect(() => {
+    if (!pricesLoaded || autoSnapped) return;
+    // Don't auto-create the very first snapshot — let the user do that intentionally.
+    if (snapshots.length === 0) return;
+    // Need at least one asset to record a meaningful snapshot.
+    const hasAssets = cryptos.length > 0 || stocks.length > 0 || properties.length > 0 || savings.length > 0;
+    if (!hasAssets) return;
+
+    const lastSnapshot = snapshots[snapshots.length - 1];
+    const lastDate = new Date(String(lastSnapshot.snapshotDate));
+    const daysSince = (Date.now() - lastDate.getTime()) / (1000 * 60 * 60 * 24);
+
+    if (daysSince >= 7) {
+      // Don't duplicate if there's already a snapshot from today.
+      const today = new Date().toISOString().split("T")[0];
+      const alreadyToday = snapshots.some((s) => String(s.snapshotDate) === today);
+      if (!alreadyToday) {
+        setAutoSnapped(true);
+        takeSnapshot();
+        setAutoSnapshotMsg(`Weekly snapshot taken automatically (last was ${Math.floor(daysSince)} days ago)`);
+        setTimeout(() => setAutoSnapshotMsg(null), 6000);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pricesLoaded, snapshots.length, autoSnapped]);
+
+  // ── Chart data ────────────────────────────────────────────────────────────
   const chartData = snapshots.map((s) => ({
     date: new Date(String(s.snapshotDate)).toLocaleDateString("cs-CZ", { day: "2-digit", month: "short", year: "2-digit" }),
     "Net Worth": Math.round(s.netWorth as number),
@@ -75,12 +148,18 @@ export default function HistoryPage() {
 
   return (
     <div>
+      {autoSnapshotMsg && (
+        <div style={{ background: "var(--surface-2)", border: "1px solid var(--accent)", borderRadius: "8px", padding: "0.6rem 1rem", marginBottom: "1rem", fontSize: "0.8rem", color: "var(--accent)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          📸 {autoSnapshotMsg}
+        </div>
+      )}
+
       <div className="page-header-row" style={{ marginBottom: "2rem" }}>
         <div>
           <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 700 }}>History & Charts</h1>
-          <p style={{ color: "var(--muted)", margin: "0.35rem 0 0", fontSize: "0.875rem" }}>Net worth over time · {snapshots.length} snapshot{snapshots.length !== 1 ? "s" : ""}</p>
+          <p style={{ color: "var(--muted)", margin: "0.35rem 0 0", fontSize: "0.875rem" }}>Net worth over time · {snapshots.length} snapshot{snapshots.length !== 1 ? "s" : ""} · auto-snapshot weekly</p>
         </div>
-        <button className="btn-primary" onClick={takeSnapshot} disabled={snapping}>{snapping ? "Saving…" : "📸 Take Snapshot"}</button>
+        <button className="btn-primary" onClick={takeSnapshot} disabled={snapping || !pricesLoaded}>{snapping ? "Saving…" : !pricesLoaded ? "Loading prices…" : "📸 Take Snapshot"}</button>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
