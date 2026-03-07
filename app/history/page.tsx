@@ -22,6 +22,8 @@ export default function HistoryPage() {
   const [autoSnapped, setAutoSnapped] = useState(false);
   const [autoSnapshotMsg, setAutoSnapshotMsg] = useState<string | null>(null);
   const [showCashflowModal, setShowCashflowModal] = useState(false);
+  const [editingCashflowId, setEditingCashflowId] = useState<string | null>(null);
+  const [cashflowError, setCashflowError] = useState<string | null>(null);
   const [cashflowForm, setCashflowForm] = useState({
     entryDate: new Date().toISOString().split("T")[0],
     type: "CONTRIBUTION",
@@ -39,8 +41,8 @@ export default function HistoryPage() {
   const propertyQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("property").select(["estimatedValue", "remainingLoan"]).where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue)), [evolu]);
   const savingsQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("savingsAccount").select(["balance"]).where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue)), [evolu]);
   const recQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("receivable").select(["amount", "status"]).where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue)), [evolu]);
-  const cashflowQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("cashflowEntry").selectAll().where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue).orderBy("entryDate", "desc")), [evolu]);
-  const snapshotQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("netWorthSnapshot").selectAll().where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue).orderBy("snapshotDate", "asc")), [evolu]);
+  const cashflowQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("cashflowEntry").selectAll().where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue).orderBy("entryDate", "desc").orderBy("createdAt", "desc")), [evolu]);
+  const snapshotQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("netWorthSnapshot").selectAll().where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue).orderBy("snapshotDate", "asc").orderBy("createdAt", "asc")), [evolu]);
 
   const cryptos = useQuery(cryptoQ);
   const stocks = useQuery(stockQ);
@@ -255,18 +257,9 @@ export default function HistoryPage() {
     setCashflowForm((current) => ({ ...current, [e.target.name]: e.target.value }));
   }
 
-  function handleSaveCashflow(e: React.FormEvent) {
-    e.preventDefault();
-    evolu.insert("cashflowEntry", {
-      entryDate: cashflowForm.entryDate,
-      type: cashflowForm.type,
-      category: cashflowForm.category.trim(),
-      amount: parseFloat(cashflowForm.amount),
-      currency: cashflowForm.currency,
-      tags: cashflowForm.tags.trim() || null,
-      notes: cashflowForm.notes.trim() || null,
-      deleted: Evolu.sqliteFalse,
-    } as never);
+  function resetCashflowForm() {
+    setEditingCashflowId(null);
+    setCashflowError(null);
     setCashflowForm({
       entryDate: new Date().toISOString().split("T")[0],
       type: "CONTRIBUTION",
@@ -276,7 +269,59 @@ export default function HistoryPage() {
       tags: "",
       notes: "",
     });
+  }
+
+  function handleSaveCashflow(e: React.FormEvent) {
+    e.preventDefault();
+    const fields = {
+      entryDate: cashflowForm.entryDate,
+      type: cashflowForm.type,
+      category: cashflowForm.category.trim(),
+      amount: parseFloat(cashflowForm.amount),
+      currency: cashflowForm.currency,
+      tags: cashflowForm.tags.trim() || null,
+      notes: cashflowForm.notes.trim() || null,
+    };
+    if (editingCashflowId) {
+      evolu.update("cashflowEntry", {
+        id: editingCashflowId as never,
+        ...fields,
+      } as never);
+    } else {
+      const result = evolu.insert("cashflowEntry", {
+        ...fields,
+        deleted: Evolu.sqliteFalse,
+      } as never);
+      if (!result.ok) {
+        setCashflowError("Unable to save cashflow entry. Please check the fields and try again.");
+        return;
+      }
+    }
+    resetCashflowForm();
     setShowCashflowModal(false);
+  }
+
+  function handleStartEditCashflow(entry: {
+    id: unknown;
+    entryDate: unknown;
+    type: unknown;
+    category: unknown;
+    amount: unknown;
+    currency: unknown;
+    tags: unknown;
+    notes: unknown;
+  }) {
+    setEditingCashflowId(entry.id as string);
+    setCashflowForm({
+      entryDate: (entry.entryDate as string) ?? new Date().toISOString().split("T")[0],
+      type: (entry.type as string) ?? "CONTRIBUTION",
+      category: (entry.category as string) ?? "",
+      amount: String(entry.amount as number),
+      currency: (entry.currency as string) ?? "CZK",
+      tags: (entry.tags as string) ?? "",
+      notes: (entry.notes as string) ?? "",
+    });
+    setShowCashflowModal(true);
   }
 
   function handleDeleteCashflow(id: string) {
@@ -428,9 +473,14 @@ export default function HistoryPage() {
                     </td>
                     <td style={{ color: "var(--muted)" }}>{(entry.notes as string) ?? "—"}</td>
                     <td>
-                      <button className="btn-ghost" onClick={() => handleDeleteCashflow(entry.id as string)}>
-                        Delete
-                      </button>
+                      <div style={{ display: "flex", gap: "0.5rem" }}>
+                        <button className="btn-ghost" onClick={() => handleStartEditCashflow(entry)}>
+                          Edit
+                        </button>
+                        <button className="btn-ghost" onClick={() => handleDeleteCashflow(entry.id as string)}>
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -470,8 +520,11 @@ export default function HistoryPage() {
 
       {showCashflowModal && (
         <Modal
-          title="Add Cashflow Entry"
-          onClose={() => setShowCashflowModal(false)}
+          title={editingCashflowId ? "Edit Cashflow Entry" : "Add Cashflow Entry"}
+          onClose={() => {
+            setShowCashflowModal(false);
+            resetCashflowForm();
+          }}
         >
           <form onSubmit={handleSaveCashflow} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
@@ -504,9 +557,25 @@ export default function HistoryPage() {
             </div>
             <FormField label="Tags" name="tags" value={cashflowForm.tags} onChange={handleCashflowChange} placeholder="salary, rebalance, transfer" />
             <FormField label="Notes" name="notes" type="textarea" value={cashflowForm.notes} onChange={handleCashflowChange} />
+            {cashflowError && (
+              <div style={{ fontSize: "0.8rem", color: "var(--red)" }}>
+                {cashflowError}
+              </div>
+            )}
             <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
-              <button type="button" className="btn-ghost" onClick={() => setShowCashflowModal(false)}>Cancel</button>
-              <button type="submit" className="btn-primary">Save Entry</button>
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => {
+                  setShowCashflowModal(false);
+                  resetCashflowForm();
+                }}
+              >
+                Cancel
+              </button>
+              <button type="submit" className="btn-primary">
+                {editingCashflowId ? "Save Changes" : "Save Entry"}
+              </button>
             </div>
           </form>
         </Modal>

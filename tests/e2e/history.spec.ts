@@ -84,4 +84,42 @@ test.describe("History (/history)", () => {
     await page.waitForTimeout(1500);
     expect(errors).toHaveLength(0);
   });
+
+  test("přidá a upraví cashflow entry", async ({ page }) => {
+    await page.getByRole("button", { name: /\+\s*Cashflow/i }).click();
+    await page.locator("input[name='category']").fill("Monthly contribution");
+    await page.locator("input[name='amount']").fill("25000");
+    await page.locator("input[name='tags']").fill("salary,long-term");
+    await page.locator("textarea[name='notes']").fill("April contribution");
+    await page.getByRole("button", { name: /Save Entry/i }).click();
+    await expect(page.locator("input[name='category']")).toHaveCount(0);
+    await page.reload();
+    await waitForApp(page);
+
+    await expect(page.getByText("Monthly contribution")).toBeVisible();
+    const row = page.getByRole("row").filter({ hasText: "Monthly contribution" });
+    await expect(row).toContainText("+25");
+
+    await row.getByRole("button", { name: /Edit/i }).click();
+    await expect(page.locator("input[name='category']")).toHaveValue("Monthly contribution");
+    await page.locator("input[name='amount']").fill("30000");
+    await page.getByRole("button", { name: /Save Changes/i }).click();
+    await expect(page.locator("input[name='category']")).toHaveCount(0);
+    await page.reload();
+    await waitForApp(page);
+
+    await expect(page.getByRole("row").filter({ hasText: "Monthly contribution" })).toContainText("+30");
+  });
+
+  test("zobrazí Asset Trends view", async ({ page }) => {
+    await page.getByRole("button", { name: /Take Snapshot|Snapshot/i }).click();
+    await page.reload();
+    await waitForApp(page);
+    await page.getByRole("button", { name: /Take Snapshot|Snapshot/i }).click();
+    await page.reload();
+    await waitForApp(page);
+    await page.getByRole("button", { name: /Asset Trends/i }).click();
+    await expect(page.getByText(/Take at least 2 snapshots to see charts\./i)).toHaveCount(0);
+    await expect(page.locator(".recharts-responsive-container").first()).toBeVisible();
+  });
 });
