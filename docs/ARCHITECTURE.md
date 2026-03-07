@@ -110,3 +110,8 @@ The architecture is clearer now, but a few cleanup areas remain:
 - mixed Czech/English product copy
 - unclear status of optional Alpha Vantage helper code
 - root-level `dev.db` still exists as a repository artifact even though Prisma is gone
+
+## Schema Evolution
+
+Evolu schema changes must follow an explicit migration policy. See
+[docs/EVOLU_MIGRATIONS.md](/Users/miroslavprochazka/Documents/DEVELOPMENT/wealth-tracker/docs/EVOLU_MIGRATIONS.md).

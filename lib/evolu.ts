@@ -7,6 +7,7 @@ import { evoluReactWebDeps } from "@evolu/react-web";
 
 const RELAY_URL_KEY = "wealthTracker_relayUrl";
 const DEFAULT_RELAY_URL = "wss://free.evoluhq.com";
+export const NET_WORTH_SNAPSHOT_SCHEMA_VERSION = 1;
 
 export const getRelayUrl = (): string => {
   if (typeof window === "undefined") return DEFAULT_RELAY_URL;
@@ -92,6 +93,8 @@ export const Schema = {
     propertyValue: Evolu.NonNegativeNumber,
     savingsValue: Evolu.NonNegativeNumber,
     receivablesValue: Evolu.NonNegativeNumber,
+    // Version the snapshot payload explicitly so dashboard/history comparisons
+    // can reject incompatible historical records after future schema changes.
     schemaVersion: Evolu.nullOr(Evolu.PositiveInt),
     deleted: Evolu.nullOr(Evolu.SqliteBoolean),
   },
