@@ -122,6 +122,7 @@ export default function Dashboard() {
           .where("isDeleted", "is not", Evolu.sqliteTrue)
           .where("deleted", "is not", Evolu.sqliteTrue)
           .orderBy("noteDate", "desc")
+          .orderBy("createdAt", "desc")
           .limit(5),
       ),
     [evolu],
@@ -149,6 +150,8 @@ export default function Dashboard() {
   const portfolioNotes = useQuery(noteQ);
   const snapshots = useQuery(snapshotQ);
   const [showNoteModal, setShowNoteModal] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [noteError, setNoteError] = useState<string | null>(null);
   const [noteForm, setNoteForm] = useState({
     title: "",
     body: "",
@@ -402,17 +405,52 @@ export default function Dashboard() {
     totalLiabilities,
   ]);
 
+  function resetNoteForm() {
+    setEditingNoteId(null);
+    setNoteError(null);
+    setNoteForm({ title: "", body: "", tags: "" });
+  }
+
   function handleSaveNote(e: React.FormEvent) {
     e.preventDefault();
-    evolu.insert("portfolioNote", {
+    const fields = {
       noteDate: new Date().toISOString().split("T")[0],
       title: noteForm.title.trim(),
       body: noteForm.body.trim(),
       tags: noteForm.tags.trim() || null,
-      deleted: Evolu.sqliteFalse,
-    } as never);
-    setNoteForm({ title: "", body: "", tags: "" });
+    };
+    if (editingNoteId) {
+      evolu.update("portfolioNote", {
+        id: editingNoteId as never,
+        ...fields,
+      } as never);
+    } else {
+      const result = evolu.insert("portfolioNote", {
+        ...fields,
+        deleted: Evolu.sqliteFalse,
+      } as never);
+      if (!result.ok) {
+        setNoteError("Unable to save note. Please check the fields and try again.");
+        return;
+      }
+    }
+    resetNoteForm();
     setShowNoteModal(false);
+  }
+
+  function handleStartEditNote(note: {
+    id: unknown;
+    title: unknown;
+    body: unknown;
+    tags: unknown;
+  }) {
+    setEditingNoteId(note.id as string);
+    setNoteForm({
+      title: (note.title as string) ?? "",
+      body: (note.body as string) ?? "",
+      tags: (note.tags as string) ?? "",
+    });
+    setShowNoteModal(true);
   }
 
   function handleDeleteNote(id: string) {
@@ -930,13 +968,22 @@ export default function Dashboard() {
                     }}
                   >
                     <strong>{note.title as string}</strong>
-                    <button
-                      className="btn-ghost"
-                      onClick={() => handleDeleteNote(note.id as string)}
-                      style={{ fontSize: "0.72rem" }}
-                    >
-                      Delete
-                    </button>
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <button
+                        className="btn-ghost"
+                        onClick={() => handleStartEditNote(note)}
+                        style={{ fontSize: "0.72rem" }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="btn-ghost"
+                        onClick={() => handleDeleteNote(note.id as string)}
+                        style={{ fontSize: "0.72rem" }}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                   <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginBottom: "0.45rem" }}>
                     {new Date(String(note.noteDate)).toLocaleDateString("cs-CZ")}
@@ -1001,10 +1048,10 @@ export default function Dashboard() {
 
       {showNoteModal && (
         <Modal
-          title="Add Portfolio Note"
+          title={editingNoteId ? "Edit Portfolio Note" : "Add Portfolio Note"}
           onClose={() => {
             setShowNoteModal(false);
-            setNoteForm({ title: "", body: "", tags: "" });
+            resetNoteForm();
           }}
         >
           <form
@@ -1039,19 +1086,24 @@ export default function Dashboard() {
               }
               placeholder="rebalance, europe, watchlist"
             />
+            {noteError && (
+              <div style={{ fontSize: "0.8rem", color: "var(--red)" }}>
+                {noteError}
+              </div>
+            )}
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
               <button
                 type="button"
                 className="btn-ghost"
                 onClick={() => {
                   setShowNoteModal(false);
-                  setNoteForm({ title: "", body: "", tags: "" });
+                  resetNoteForm();
                 }}
               >
                 Cancel
               </button>
               <button type="submit" className="btn-primary">
-                Save Note
+                {editingNoteId ? "Save Changes" : "Save Note"}
               </button>
             </div>
           </form>

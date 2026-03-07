@@ -96,4 +96,28 @@ test.describe("Dashboard (/)", () => {
     );
     expect(bg).toMatch(/gradient/);
   });
+
+  test("přidá a upraví portfolio note", async ({ page }) => {
+    await page.getByRole("button", { name: /\+\s*Add Note/i }).click();
+    await page.locator("input[name='title']").fill("Rebalance Q2");
+    await page.locator("textarea[name='body']").fill("Trim US tech and increase cash.");
+    await page.locator("input[name='tags']").fill("rebalance,cash");
+    await page.getByRole("button", { name: /Save Note/i }).click();
+    await expect(page.locator("input[name='title']")).toHaveCount(0);
+    await page.reload();
+    await waitForApp(page);
+
+    const noteCard = page.getByText("Rebalance Q2").locator("..").locator("..");
+    await expect(noteCard).toBeVisible();
+    await expect(noteCard).toContainText("#rebalance");
+    await noteCard.getByRole("button", { name: /Edit/i }).click();
+    await expect(page.locator("input[name='title']")).toHaveValue("Rebalance Q2");
+    await page.locator("textarea[name='body']").fill("Trim US tech and add Europe exposure.");
+    await page.getByRole("button", { name: /Save Changes/i }).click();
+    await expect(page.locator("input[name='title']")).toHaveCount(0);
+    await page.reload();
+    await waitForApp(page);
+
+    await expect(page.getByText("Trim US tech and add Europe exposure.")).toBeVisible();
+  });
 });
