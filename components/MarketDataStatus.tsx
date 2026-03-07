@@ -6,7 +6,13 @@ interface MarketSourceStatus {
   fetchedAt: string | null;
 }
 
-type SourceTone = "ok" | "warning" | "error" | "loading";
+interface MarketMetaItem {
+  label: string;
+  value: string;
+  tone?: SourceTone;
+}
+
+type SourceTone = "ok" | "warning" | "error" | "loading" | "neutral";
 
 function formatFreshness(timestamp: string | null): string {
   if (!timestamp) return "No successful refresh yet";
@@ -35,14 +41,16 @@ function describeSource(source: MarketSourceStatus): string {
 
 export default function MarketDataStatus({
   sources,
+  metaItems = [],
 }: {
   sources: MarketSourceStatus[];
+  metaItems?: MarketMetaItem[];
 }) {
   const relevantSources = sources.filter(
     (source) => source.loading || source.error || source.fetchedAt,
   );
 
-  if (relevantSources.length === 0) return null;
+  if (relevantSources.length === 0 && metaItems.length === 0) return null;
 
   const hasError = relevantSources.some((source) => source.error);
   const hasStale = relevantSources.some((source) => source.stale);
@@ -91,6 +99,12 @@ export default function MarketDataStatus({
       background: "rgba(6, 182, 212, 0.08)",
       text: "#67e8f9",
       dot: "var(--cyan)",
+    },
+    neutral: {
+      border: "rgba(255, 255, 255, 0.1)",
+      background: "rgba(255, 255, 255, 0.04)",
+      text: "var(--muted)",
+      dot: "rgba(255, 255, 255, 0.45)",
     },
   };
 
@@ -150,6 +164,40 @@ export default function MarketDataStatus({
           fontSize: "0.72rem",
         }}
       >
+        {metaItems.map((item) => {
+          const tone = item.tone ?? "neutral";
+
+          return (
+            <div
+              key={item.label}
+              title={`${item.label}: ${item.value}`}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.45rem",
+                padding: "0.28rem 0.55rem",
+                borderRadius: "999px",
+                border: `1px solid ${toneStyles[tone].border}`,
+                background: toneStyles[tone].background,
+                color: toneStyles[tone].text,
+                lineHeight: 1.2,
+              }}
+            >
+              <span
+                aria-hidden="true"
+                style={{
+                  width: "0.36rem",
+                  height: "0.36rem",
+                  borderRadius: "999px",
+                  background: toneStyles[tone].dot,
+                  flexShrink: 0,
+                }}
+              />
+              <span style={{ color: "var(--foreground)" }}>{item.label}</span>
+              <span style={{ color: "inherit" }}>{item.value}</span>
+            </div>
+          );
+        })}
         {relevantSources.map((source) => {
           const tone = getSourceTone(source);
           const title = source.error
