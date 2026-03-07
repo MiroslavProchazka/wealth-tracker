@@ -82,11 +82,18 @@ test.describe("Dashboard (/)", () => {
     expect(borderColor).not.toMatch(/#[0-9a-fA-F]{3,6}/);
   });
 
-  test("Quick Access sekce zobrazuje linky na všechny kategorie", async ({ page }) => {
-    const quickAccess = page.getByText("Quick Access").locator("..");
-    await expect(quickAccess.getByRole("link", { name: /crypto/i })).toBeVisible();
-    await expect(quickAccess.getByRole("link", { name: /stocks/i })).toBeVisible();
-    await expect(quickAccess.getByRole("link", { name: /property/i })).toBeVisible();
+  test("horní summary dlaždice pro sekce jsou klikatelné", async ({ page }) => {
+    const statGrid = page.locator(".stat-grid");
+    await expect(statGrid.getByRole("link", { name: /savings/i })).toBeVisible();
+    await expect(statGrid.getByRole("link", { name: /property/i })).toBeVisible();
+    await expect(statGrid.getByRole("link", { name: /receivables/i })).toBeVisible();
+    await expect(statGrid.getByRole("link", { name: /crypto/i })).toBeVisible();
+    await expect(page.getByText("Quick Access")).toHaveCount(0);
+  });
+
+  test("klik na Property summary dlaždici otevře property stránku", async ({ page }) => {
+    await page.locator(".stat-grid").getByRole("link", { name: /property/i }).click();
+    await expect(page).toHaveURL("/property");
   });
 
   test("aktivní sidebar odkaz má gradient pozadí", async ({ page }) => {
