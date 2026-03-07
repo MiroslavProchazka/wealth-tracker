@@ -112,14 +112,29 @@ test.describe("History (/history)", () => {
   });
 
   test("zobrazí Asset Trends view", async ({ page }) => {
-    await page.getByRole("button", { name: /Take Snapshot|Snapshot/i }).click();
+    await page.getByRole("button", { name: /Take Snapshot/i }).click();
     await page.reload();
     await waitForApp(page);
-    await page.getByRole("button", { name: /Take Snapshot|Snapshot/i }).click();
+    await page.getByRole("button", { name: /Take Snapshot/i }).click();
     await page.reload();
     await waitForApp(page);
     await page.getByRole("button", { name: /Asset Trends/i }).click();
     await expect(page.getByText(/Take at least 2 snapshots to see charts\./i)).toHaveCount(0);
     await expect(page.locator(".recharts-responsive-container").first()).toBeVisible();
+  });
+
+  test("smaže snapshot z historie", async ({ page }) => {
+    await page.getByRole("button", { name: /Take Snapshot|Snapshot/i }).click();
+    await page.reload();
+    await waitForApp(page);
+
+    const snapshotHistory = page.getByRole("table").filter({ has: page.getByRole("button", { name: /Delete snapshot from/i }).first() });
+    await expect(snapshotHistory).toBeVisible();
+    await expect(snapshotHistory.getByRole("button", { name: /Delete snapshot from/i })).toHaveCount(1);
+
+    page.on("dialog", (dialog) => dialog.accept());
+    await snapshotHistory.getByRole("button", { name: /Delete snapshot from/i }).click();
+
+    await expect(snapshotHistory).toHaveCount(0);
   });
 });

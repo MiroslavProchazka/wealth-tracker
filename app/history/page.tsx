@@ -328,6 +328,22 @@ export default function HistoryPage() {
     evolu.update("cashflowEntry", { id: id as never, deleted: Evolu.sqliteTrue } as never);
   }
 
+  function handleDeleteSnapshot(id: string, snapshotDate: string) {
+    if (typeof window !== "undefined") {
+      const confirmed = window.confirm(
+        `Delete snapshot from ${new Date(snapshotDate).toLocaleDateString("cs-CZ", {
+          dateStyle: "medium",
+        })}?`,
+      );
+      if (!confirmed) return;
+    }
+
+    evolu.update("netWorthSnapshot", {
+      id: id as never,
+      deleted: Evolu.sqliteTrue,
+    } as never);
+  }
+
   return (
     <div>
       {autoSnapshotMsg && (
@@ -495,7 +511,7 @@ export default function HistoryPage() {
           <div style={{ padding: "1rem 1.5rem", borderBottom: "1px solid var(--card-border)", fontWeight: 700, fontSize: "0.9rem" }}>Snapshot History</div>
           <div className="table-scroll">
           <table>
-            <thead><tr><th>Date</th><th>Net Worth</th><th>Assets</th><th>Liabilities</th><th>Change</th></tr></thead>
+            <thead><tr><th>Date</th><th>Net Worth</th><th>Assets</th><th>Liabilities</th><th>Change</th><th>Actions</th></tr></thead>
             <tbody>
               {[...snapshots].reverse().map((snap, idx, arr) => {
                 const prev = arr[idx + 1];
@@ -508,6 +524,15 @@ export default function HistoryPage() {
                     <td style={{ color: "var(--red)" }}>{formatCurrency(snap.totalLiabilities as number, "CZK")}</td>
                     <td style={{ color: change === null ? "var(--muted)" : change >= 0 ? "var(--green)" : "var(--red)", fontSize: "0.85rem" }}>
                       {change === null ? "—" : (change >= 0 ? "+" : "") + formatCurrency(change, "CZK")}
+                    </td>
+                    <td>
+                      <button
+                        className="btn-ghost"
+                        onClick={() => handleDeleteSnapshot(snap.id as string, String(snap.snapshotDate))}
+                        aria-label={`Delete snapshot from ${String(snap.snapshotDate)}`}
+                      >
+                        Delete
+                      </button>
                     </td>
                   </tr>
                 );
