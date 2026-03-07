@@ -25,11 +25,7 @@ import {
   ArrowDown,
   Landmark,
   Bitcoin,
-  Coins,
-  TrendingUp,
   Home,
-  BarChart3,
-  Settings,
   NotebookPen,
 } from "lucide-react";
 
@@ -457,45 +453,6 @@ export default function Dashboard() {
     evolu.update("portfolioNote", { id: id as never, deleted: Evolu.sqliteTrue } as never);
   }
 
-  const quickItems = [
-    {
-      href: "/crypto",
-      icon: <Coins size={14} />,
-      label: "Crypto",
-      count: cryptos.length,
-    },
-    {
-      href: "/stocks",
-      icon: <TrendingUp size={14} />,
-      label: "Stocks",
-      count: stocks.length,
-    },
-    {
-      href: "/property",
-      icon: <Home size={14} />,
-      label: "Property",
-      count: properties.length,
-    },
-    {
-      href: "/savings",
-      icon: <Landmark size={14} />,
-      label: "Savings",
-      count: null,
-    },
-    {
-      href: "/history",
-      icon: <BarChart3 size={14} />,
-      label: "History",
-      count: null,
-    },
-    {
-      href: "/settings",
-      icon: <Settings size={14} />,
-      label: "Account",
-      count: null,
-    },
-  ];
-
   return (
     <div>
       {autoSnapshotMsg && (
@@ -656,12 +613,22 @@ export default function Dashboard() {
           value={formatCurrency(savingsValue, "CZK")}
           accent="var(--green)"
           icon={<Landmark size={16} />}
+          href="/savings"
+        />
+        <StatCard
+          label="Property"
+          value={formatCurrency(propertyValue, "CZK")}
+          sub={`${properties.length} properties`}
+          accent="#8b5cf6"
+          icon={<Home size={16} />}
+          href="/property"
         />
         <StatCard
           label="Receivables"
           value={formatCurrency(receivablesValue, "CZK")}
           accent="#06b6d4"
           icon={<NotebookPen size={16} />}
+          href="/receivables"
         />
         <StatCard
           label="Crypto"
@@ -669,6 +636,7 @@ export default function Dashboard() {
           sub={`${cryptos.length} assets`}
           accent="#f97316"
           icon={<Bitcoin size={16} />}
+          href="/crypto"
         />
       </div>
 
@@ -741,7 +709,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── Bottom row ─────────────────────────────────────────── */}
-      <div className="dashboard-bottom">
+      <div style={{ marginBottom: "1.5rem" }}>
         {/* Asset Allocation */}
         <div className="card">
           <h2
@@ -838,82 +806,6 @@ export default function Dashboard() {
               })}
             </div>
           )}
-        </div>
-
-        {/* Quick Access */}
-        <div className="card">
-          <h2
-            style={{ margin: "0 0 1.25rem", fontSize: "1rem", fontWeight: 700 }}
-          >
-            Quick Access
-          </h2>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "0.75rem",
-            }}
-          >
-            {quickItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  padding: "0.75rem",
-                  borderRadius: "8px",
-                  background: "var(--surface-2)",
-                  border: "1px solid var(--border)",
-                  textDecoration: "none",
-                  color: "var(--text-2)",
-                  fontSize: "0.8rem",
-                  transition: "all 0.15s ease",
-                  fontWeight: 500,
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLAnchorElement).style.borderColor =
-                    "var(--border-2)";
-                  (e.currentTarget as HTMLAnchorElement).style.color =
-                    "var(--text)";
-                  (e.currentTarget as HTMLAnchorElement).style.background =
-                    "var(--surface-3)";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLAnchorElement).style.borderColor =
-                    "var(--border)";
-                  (e.currentTarget as HTMLAnchorElement).style.color =
-                    "var(--text-2)";
-                  (e.currentTarget as HTMLAnchorElement).style.background =
-                    "var(--surface-2)";
-                }}
-              >
-                <span
-                  style={{
-                    color: "var(--text-3)",
-                    display: "flex",
-                    alignItems: "center",
-                  }}
-                >
-                  {item.icon}
-                </span>
-                <span>{item.label}</span>
-                {item.count !== null && item.count > 0 && (
-                  <span
-                    style={{
-                      marginLeft: "auto",
-                      fontSize: "0.7rem",
-                      color: "var(--text-3)",
-                      fontFeatureSettings: '"tnum"',
-                    }}
-                  >
-                    {item.count}
-                  </span>
-                )}
-              </Link>
-            ))}
-          </div>
         </div>
       </div>
 
