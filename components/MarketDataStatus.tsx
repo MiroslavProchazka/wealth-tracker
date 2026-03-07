@@ -6,6 +6,8 @@ interface MarketSourceStatus {
   fetchedAt: string | null;
 }
 
+type SourceTone = "ok" | "warning" | "error" | "loading";
+
 function formatFreshness(timestamp: string | null): string {
   if (!timestamp) return "No successful refresh yet";
   const diffMs = Date.now() - new Date(timestamp).getTime();
@@ -15,6 +17,20 @@ function formatFreshness(timestamp: string | null): string {
   const hours = Math.round(minutes / 60);
   if (hours < 24) return `Updated ${hours} h ago`;
   return `Updated ${new Date(timestamp).toLocaleString("cs-CZ")}`;
+}
+
+function getSourceTone(source: MarketSourceStatus): SourceTone {
+  if (source.error) return "error";
+  if (source.stale) return "warning";
+  if (source.loading) return "loading";
+  return "ok";
+}
+
+function describeSource(source: MarketSourceStatus): string {
+  if (source.loading) return "Refreshing…";
+  if (source.error) return `Unavailable. ${formatFreshness(source.fetchedAt)}`;
+  if (source.stale) return `Cached. ${formatFreshness(source.fetchedAt)}`;
+  return formatFreshness(source.fetchedAt);
 }
 
 export default function MarketDataStatus({
@@ -32,44 +48,145 @@ export default function MarketDataStatus({
   const hasStale = relevantSources.some((source) => source.stale);
   const isLoading = relevantSources.some((source) => source.loading);
 
-  const accent = hasError ? "#f59e0b" : hasStale ? "#f59e0b" : "#10b981";
-  const background = hasError
-    ? "rgba(245,158,11,0.08)"
+  const summary = hasError
+    ? "Market data is partially unavailable"
     : hasStale
-      ? "rgba(245,158,11,0.06)"
-      : "rgba(16,185,129,0.06)";
+      ? "Showing cached market data"
+      : isLoading
+        ? "Refreshing market data"
+        : "Market data is up to date";
+
+  const summaryTone: SourceTone = hasError
+    ? "error"
+    : hasStale
+      ? "warning"
+      : isLoading
+        ? "loading"
+        : "ok";
+
+  const toneStyles: Record<
+    SourceTone,
+    { border: string; background: string; text: string; dot: string }
+  > = {
+    ok: {
+      border: "rgba(34, 197, 94, 0.18)",
+      background: "rgba(34, 197, 94, 0.08)",
+      text: "#86efac",
+      dot: "var(--green)",
+    },
+    warning: {
+      border: "rgba(245, 158, 11, 0.22)",
+      background: "rgba(245, 158, 11, 0.08)",
+      text: "#fcd34d",
+      dot: "var(--yellow)",
+    },
+    error: {
+      border: "rgba(244, 63, 94, 0.22)",
+      background: "rgba(244, 63, 94, 0.08)",
+      text: "#fda4af",
+      dot: "var(--red)",
+    },
+    loading: {
+      border: "rgba(6, 182, 212, 0.2)",
+      background: "rgba(6, 182, 212, 0.08)",
+      text: "#67e8f9",
+      dot: "var(--cyan)",
+    },
+  };
 
   return (
     <div
       style={{
-        marginBottom: "1rem",
-        padding: "0.85rem 1rem",
-        borderRadius: "10px",
-        border: `1px solid ${accent}33`,
-        background,
+        marginBottom: "0.9rem",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: "0.75rem",
+        flexWrap: "wrap",
+        padding: "0.55rem 0.75rem",
+        borderRadius: "12px",
+        border: "1px solid var(--card-border)",
+        background: "rgba(255, 255, 255, 0.02)",
+        backdropFilter: "blur(10px)",
+        WebkitBackdropFilter: "blur(10px)",
       }}
     >
-      <div style={{ fontSize: "0.82rem", fontWeight: 700, marginBottom: "0.45rem" }}>
-        {hasError
-          ? "Market data is partially unavailable"
-          : hasStale
-            ? "Showing cached market data"
-            : "Market data is up to date"}
+      <div
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "0.45rem",
+          fontSize: "0.78rem",
+          fontWeight: 600,
+          color: "var(--muted)",
+          whiteSpace: "nowrap",
+        }}
+      >
+        <span
+          aria-hidden="true"
+          style={{
+            width: "0.45rem",
+            height: "0.45rem",
+            borderRadius: "999px",
+            background: toneStyles[summaryTone].dot,
+            boxShadow: `0 0 0 4px ${toneStyles[summaryTone].background}`,
+            flexShrink: 0,
+          }}
+        />
+        <span style={{ color: "var(--foreground)" }}>{summary}</span>
+        {isLoading && !hasError && (
+          <span style={{ color: "var(--muted)", fontWeight: 500 }}>
+            New prices are still loading
+          </span>
+        )}
       </div>
-      <div style={{ display: "grid", gap: "0.25rem", fontSize: "0.78rem", color: "var(--muted)" }}>
-        {relevantSources.map((source) => (
-          <div key={source.label}>
-            {source.label}:{" "}
-            {source.loading
-              ? "Refreshing…"
-              : source.error
-                ? `Live fetch failed (${source.error}). ${formatFreshness(source.fetchedAt)}`
-                : source.stale
-                  ? `Cached data. ${formatFreshness(source.fetchedAt)}`
-                  : formatFreshness(source.fetchedAt)}
-          </div>
-        ))}
-        {isLoading && <div>New prices are still loading.</div>}
+
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          justifyContent: "flex-end",
+          gap: "0.45rem",
+          fontSize: "0.72rem",
+        }}
+      >
+        {relevantSources.map((source) => {
+          const tone = getSourceTone(source);
+          const title = source.error
+            ? `${source.label}: Live fetch failed (${source.error}). ${formatFreshness(source.fetchedAt)}`
+            : `${source.label}: ${describeSource(source)}`;
+
+          return (
+            <div
+              key={source.label}
+              title={title}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.45rem",
+                padding: "0.28rem 0.55rem",
+                borderRadius: "999px",
+                border: `1px solid ${toneStyles[tone].border}`,
+                background: toneStyles[tone].background,
+                color: toneStyles[tone].text,
+                lineHeight: 1.2,
+              }}
+            >
+              <span
+                aria-hidden="true"
+                style={{
+                  width: "0.36rem",
+                  height: "0.36rem",
+                  borderRadius: "999px",
+                  background: toneStyles[tone].dot,
+                  flexShrink: 0,
+                }}
+              />
+              <span style={{ color: "var(--foreground)" }}>{source.label}</span>
+              <span style={{ color: "inherit" }}>{describeSource(source)}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
