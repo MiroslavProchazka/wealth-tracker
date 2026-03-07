@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import Link from "next/link";
 
 interface StatCardProps {
   label: string;
@@ -7,17 +8,20 @@ interface StatCardProps {
   subPositive?: boolean;
   accent?: string;
   icon?: ReactNode;
+  href?: string;
 }
 
-export default function StatCard({ label, value, sub, subPositive, accent, icon }: StatCardProps) {
-  return (
-    <div
-      className="card"
-      style={{
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
+export default function StatCard({
+  label,
+  value,
+  sub,
+  subPositive,
+  accent,
+  icon,
+  href,
+}: StatCardProps) {
+  const content = (
+    <>
       {/* Subtle accent top line */}
       {accent && (
         <div style={{
@@ -100,6 +104,34 @@ export default function StatCard({ label, value, sub, subPositive, accent, icon 
           </div>
         )}
       </div>
+    </>
+  );
+
+  const cardStyle = {
+    position: "relative" as const,
+    overflow: "hidden" as const,
+  };
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className="card card-clickable"
+        style={{
+          ...cardStyle,
+          display: "block",
+          textDecoration: "none",
+          color: "inherit",
+        }}
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <div className="card" style={cardStyle}>
+      {content}
     </div>
   );
 }
