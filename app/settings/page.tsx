@@ -1,8 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as bip39 from "bip39";
 import * as Evolu from "@evolu/common";
+import { useQuery } from "@evolu/react";
+import {
+  BACKUP_TABLES,
+  buildBackupPayload,
+  parseBackupPayload,
+} from "@/lib/backup";
 import { getRelayUrl, setRelayUrl, useEvolu } from "@/lib/evolu";
 
 // Inner component — loads appOwner async to avoid SSR suspend (use() hangs in Node.js)
@@ -19,12 +25,89 @@ function SettingsContent() {
   const [restoreInput, setRestoreInput] = useState("");
   const [restoreError, setRestoreError] = useState("");
   const [restoring, setRestoring] = useState(false);
+  const [backupStatus, setBackupStatus] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Relay settings
   const [relayUrl, setRelayUrlState] = useState("");
   const [savedRelay, setSavedRelay] = useState("");
   const [relayStatus, setRelayStatus] = useState<null | boolean>(null);
   const [reconnecting, setReconnecting] = useState(false);
+
+  const cryptoQ = useMemo(
+    () =>
+      evolu.createQuery((db) =>
+        db
+          .selectFrom("cryptoHolding")
+          .selectAll()
+          .where("isDeleted", "is not", Evolu.sqliteTrue)
+          .where("deleted", "is not", Evolu.sqliteTrue),
+      ),
+    [evolu],
+  );
+  const stockQ = useMemo(
+    () =>
+      evolu.createQuery((db) =>
+        db
+          .selectFrom("stockHolding")
+          .selectAll()
+          .where("isDeleted", "is not", Evolu.sqliteTrue)
+          .where("deleted", "is not", Evolu.sqliteTrue),
+      ),
+    [evolu],
+  );
+  const propertyQ = useMemo(
+    () =>
+      evolu.createQuery((db) =>
+        db
+          .selectFrom("property")
+          .selectAll()
+          .where("isDeleted", "is not", Evolu.sqliteTrue)
+          .where("deleted", "is not", Evolu.sqliteTrue),
+      ),
+    [evolu],
+  );
+  const receivableQ = useMemo(
+    () =>
+      evolu.createQuery((db) =>
+        db
+          .selectFrom("receivable")
+          .selectAll()
+          .where("isDeleted", "is not", Evolu.sqliteTrue)
+          .where("deleted", "is not", Evolu.sqliteTrue),
+      ),
+    [evolu],
+  );
+  const savingsQ = useMemo(
+    () =>
+      evolu.createQuery((db) =>
+        db
+          .selectFrom("savingsAccount")
+          .selectAll()
+          .where("isDeleted", "is not", Evolu.sqliteTrue)
+          .where("deleted", "is not", Evolu.sqliteTrue),
+      ),
+    [evolu],
+  );
+  const snapshotQ = useMemo(
+    () =>
+      evolu.createQuery((db) =>
+        db
+          .selectFrom("netWorthSnapshot")
+          .selectAll()
+          .where("isDeleted", "is not", Evolu.sqliteTrue)
+          .where("deleted", "is not", Evolu.sqliteTrue),
+      ),
+    [evolu],
+  );
+
+  const cryptoHoldings = useQuery(cryptoQ);
+  const stockHoldings = useQuery(stockQ);
+  const properties = useQuery(propertyQ);
+  const receivables = useQuery(receivableQ);
+  const savingsAccounts = useQuery(savingsQ);
+  const snapshots = useQuery(snapshotQ);
 
   useEffect(() => {
     const url = getRelayUrl();
@@ -115,6 +198,109 @@ function SettingsContent() {
       : relayStatus
         ? { color: "#10b981", label: "Connected" }
         : { color: "#ef4444", label: "Disconnected" };
+
+  function handleExportBackup() {
+    const payload = buildBackupPayload({
+      cryptoHolding: cryptoHoldings.map((row) => ({ ...row })),
+      stockHolding: stockHoldings.map((row) => ({ ...row })),
+      property: properties.map((row) => ({ ...row })),
+      receivable: receivables.map((row) => ({ ...row })),
+      savingsAccount: savingsAccounts.map((row) => ({ ...row })),
+      netWorthSnapshot: snapshots.map((row) => ({ ...row })),
+    });
+
+    const fileName = `wealth-tracker-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(url);
+    setBackupStatus(`Backup exported: ${fileName}`);
+  }
+
+  async function handleImportBackup(
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setBackupStatus(null);
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const { payload, issues } = parseBackupPayload(text);
+
+      if (!payload) {
+        setBackupStatus(issues[0] ?? "Backup import failed.");
+        return;
+      }
+
+      const summary = BACKUP_TABLES.map(
+        (table) => `${table}: ${payload.data[table].length}`,
+      ).join(", ");
+
+      if (
+        !confirm(
+          `Import backup and replace current local data?\n\n${summary}${
+            issues.length ? `\n\nWarnings:\n- ${issues.join("\n- ")}` : ""
+          }`,
+        )
+      ) {
+        return;
+      }
+
+      const currentRows = {
+        cryptoHolding: cryptoHoldings,
+        stockHolding: stockHoldings,
+        property: properties,
+        receivable: receivables,
+        savingsAccount: savingsAccounts,
+        netWorthSnapshot: snapshots,
+      };
+
+      for (const table of BACKUP_TABLES) {
+        for (const row of currentRows[table]) {
+          evolu.update(
+            table,
+            { id: row.id as never, deleted: Evolu.sqliteTrue } as never,
+          );
+        }
+      }
+
+      for (const table of BACKUP_TABLES) {
+        for (const row of payload.data[table]) {
+          evolu.insert(table, row as never);
+        }
+      }
+
+      setBackupStatus(
+        issues.length
+          ? `Backup imported with warnings. ${issues.join(" ")} Reloading app…`
+          : "Backup imported successfully. Reloading app…",
+      );
+
+      setTimeout(() => {
+        evolu.reloadApp();
+      }, 400);
+    } catch {
+      setBackupStatus("Backup import failed.");
+    } finally {
+      setImporting(false);
+      event.target.value = "";
+    }
+  }
+
+  const totalExportableRecords =
+    cryptoHoldings.length +
+    stockHoldings.length +
+    properties.length +
+    receivables.length +
+    savingsAccounts.length +
+    snapshots.length;
 
   return (
     <div style={{ maxWidth: "640px" }}>
@@ -232,7 +418,7 @@ function SettingsContent() {
       </div>
 
       {/* Relay / Sync */}
-      <div className="card">
+      <div className="card" style={{ marginBottom: "1.5rem" }}>
         <div
           style={{
             display: "flex",
@@ -322,6 +508,67 @@ function SettingsContent() {
           read your data. Open this app with the same seed phrase on another
           device to sync.
         </div>
+      </div>
+
+      <div className="card">
+        <h2 style={{ margin: "0 0 0.5rem", fontSize: "1rem", fontWeight: 700 }}>
+          💾 Backup & Restore
+        </h2>
+        <p style={{ color: "var(--muted)", fontSize: "0.8rem", margin: "0 0 1rem" }}>
+          Export your local Evolu data to JSON or import a previous backup.
+          Import replaces the current local dataset and then reloads the app.
+        </p>
+
+        <div
+          style={{
+            marginBottom: "1rem",
+            padding: "0.8rem 1rem",
+            borderRadius: "8px",
+            background: "rgba(59,130,246,0.06)",
+            border: "1px solid rgba(59,130,246,0.16)",
+            fontSize: "0.78rem",
+            color: "var(--muted)",
+          }}
+        >
+          Active records available for export: {totalExportableRecords}
+        </div>
+
+        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+          <button className="btn-primary" onClick={handleExportBackup}>
+            Export Backup
+          </button>
+          <button
+            className="btn-ghost"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importing}
+          >
+            {importing ? "Importing…" : "Import Backup"}
+          </button>
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/json,.json"
+          onChange={handleImportBackup}
+          style={{ display: "none" }}
+        />
+
+        {backupStatus && (
+          <div
+            style={{
+              marginTop: "1rem",
+              padding: "0.75rem 1rem",
+              borderRadius: "8px",
+              background: "rgba(16,185,129,0.06)",
+              border: "1px solid rgba(16,185,129,0.16)",
+              fontSize: "0.78rem",
+              color: "var(--muted)",
+            }}
+          >
+            {backupStatus}
+          </div>
+        )}
       </div>
     </div>
   );

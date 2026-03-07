@@ -5,6 +5,7 @@ import * as Evolu from "@evolu/common";
 import { useQuery } from "@evolu/react";
 import { NET_WORTH_SNAPSHOT_SCHEMA_VERSION, useEvolu } from "@/lib/evolu";
 import { formatCurrency } from "@/lib/currencies";
+import MarketDataStatus from "@/components/MarketDataStatus";
 import StatCard from "@/components/StatCard";
 import Link from "next/link";
 import {
@@ -104,6 +105,18 @@ export default function Dashboard() {
   const [stockPrices, setStockPrices] = useState<
     Record<string, { czk: number }>
   >({});
+  const [cryptoStatus, setCryptoStatus] = useState({
+    loading: false,
+    stale: false,
+    error: null as string | null,
+    fetchedAt: null as string | null,
+  });
+  const [stockStatus, setStockStatus] = useState({
+    loading: false,
+    stale: false,
+    error: null as string | null,
+    fetchedAt: null as string | null,
+  });
 
   useEffect(() => {
     const symbols = cryptos
@@ -111,12 +124,23 @@ export default function Dashboard() {
       .filter(Boolean);
     if (symbols.length === 0) return;
     fetch(`/api/crypto/prices?symbols=${encodeURIComponent(symbols.join(","))}`)
-      .then((r) => r.json())
-      .then((d) => {
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error ?? `HTTP ${r.status}`);
         if (d.prices) setCryptoPrices(d.prices);
+        setCryptoStatus({
+          loading: false,
+          stale: Boolean(d.stale),
+          error: null,
+          fetchedAt: d.fetchedAt ?? null,
+        });
       })
-      .catch(() => {
-        /* silently ignore – fall back to 0 */
+      .catch((error: Error) => {
+        setCryptoStatus((current) => ({
+          ...current,
+          loading: false,
+          error: error.message,
+        }));
       });
   }, [cryptos]);
 
@@ -126,12 +150,23 @@ export default function Dashboard() {
       .filter(Boolean);
     if (tickers.length === 0) return;
     fetch(`/api/stocks/prices?tickers=${encodeURIComponent(tickers.join(","))}`)
-      .then((r) => r.json())
-      .then((d) => {
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error ?? `HTTP ${r.status}`);
         if (d.prices) setStockPrices(d.prices);
+        setStockStatus({
+          loading: false,
+          stale: Boolean(d.stale),
+          error: null,
+          fetchedAt: d.fetchedAt ?? null,
+        });
       })
-      .catch(() => {
-        /* silently ignore – fall back to 0 */
+      .catch((error: Error) => {
+        setStockStatus((current) => ({
+          ...current,
+          loading: false,
+          error: error.message,
+        }));
       });
   }, [stocks]);
 
@@ -269,6 +304,17 @@ export default function Dashboard() {
           Evolu status: {evoluReady ? "OK" : "offline"}
         </p>
       </div>
+
+      <MarketDataStatus
+        sources={[
+          ...(cryptos.length > 0
+            ? [{ label: "Crypto prices", ...cryptoStatus }]
+            : []),
+          ...(stocks.length > 0
+            ? [{ label: "Stock prices", ...stockStatus }]
+            : []),
+        ]}
+      />
 
       {/* ── Net Worth hero card ─────────────────────────────────── */}
       <div
