@@ -13,7 +13,7 @@ const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
   PAID:     { label: "Paid",     cls: "badge badge-green" },
   OVERDUE:  { label: "Overdue",  cls: "badge badge-red" },
 };
-const EMPTY_FORM = { description: "", client: "", amount: "", currency: "CZK", dueDate: "", status: "PENDING", notes: "" };
+const EMPTY_FORM = { description: "", client: "", amount: "", currency: "CZK", dueDate: "", status: "PENDING", tags: "", notes: "" };
 
 export default function ReceivablesPage() {
   const evolu = useEvolu();
@@ -45,6 +45,7 @@ export default function ReceivablesPage() {
       currency: form.currency,
       status: form.status,
       dueDate: form.dueDate ? form.dueDate : null,
+      tags: form.tags.trim() || null,
       notes: form.notes.trim() || null,
     };
     if (editingId) {
@@ -67,6 +68,7 @@ export default function ReceivablesPage() {
       currency: item.currency as string,
       status: item.status as string,
       dueDate: (item.dueDate as string) ?? "",
+      tags: (item.tags as string) ?? "",
       notes: (item.notes as string) ?? "",
     });
     setEditingId(item.id as string);
@@ -84,6 +86,28 @@ export default function ReceivablesPage() {
 
   const total = items.filter((i) => String(i.status) !== "PAID").reduce((s, i) => s + (i.amount as number), 0);
   const totalAll = items.reduce((s, i) => s + (i.amount as number), 0);
+  const today = new Date();
+  const agingBuckets = items.reduce(
+    (acc, item) => {
+      if (String(item.status) === "PAID") return acc;
+      const amount = item.amount as number;
+      const dueDateStr = item.dueDate ? String(item.dueDate) : null;
+      if (!dueDateStr) {
+        acc.current += amount;
+        return acc;
+      }
+      const dueDate = new Date(dueDateStr);
+      const ageDays = Math.floor(
+        (today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24),
+      );
+      if (ageDays <= 0) acc.current += amount;
+      else if (ageDays <= 30) acc.days1to30 += amount;
+      else if (ageDays <= 60) acc.days31to60 += amount;
+      else acc.days61plus += amount;
+      return acc;
+    },
+    { current: 0, days1to30: 0, days31to60: 0, days61plus: 0 },
+  );
 
   return (
     <div>
@@ -107,6 +131,37 @@ export default function ReceivablesPage() {
             <div style={{ fontSize: "1.4rem", fontWeight: 700, color: s.color }}>{s.value}</div>
           </div>
         ))}
+      </div>
+
+      <div className="card" style={{ marginBottom: "1.5rem" }}>
+        <div style={{ fontSize: "0.8rem", fontWeight: 700, marginBottom: "0.9rem" }}>
+          Aging Summary
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "0.85rem" }}>
+          {[
+            { label: "Current", value: agingBuckets.current, color: "#10b981" },
+            { label: "1-30 days overdue", value: agingBuckets.days1to30, color: "#f59e0b" },
+            { label: "31-60 days overdue", value: agingBuckets.days31to60, color: "#f97316" },
+            { label: "61+ days overdue", value: agingBuckets.days61plus, color: "#ef4444" },
+          ].map((bucket) => (
+            <div
+              key={bucket.label}
+              style={{
+                padding: "0.85rem 1rem",
+                borderRadius: "10px",
+                background: "var(--surface-2)",
+                border: "1px solid var(--border)",
+              }}
+            >
+              <div style={{ fontSize: "0.7rem", color: "var(--muted)", marginBottom: "0.35rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                {bucket.label}
+              </div>
+              <div style={{ fontSize: "1.1rem", fontWeight: 700, color: bucket.color }}>
+                {formatCurrency(bucket.value, "CZK")}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -163,6 +218,7 @@ export default function ReceivablesPage() {
               <FormField label="Due Date" name="dueDate" type="date" value={form.dueDate} onChange={handleChange} />
               <FormField label="Status" name="status" value={form.status} onChange={handleChange} options={[{ value: "PENDING", label: "Pending (un-invoiced)" }, { value: "INVOICED", label: "Invoiced" }, { value: "OVERDUE", label: "Overdue" }, { value: "PAID", label: "Paid" }]} />
             </div>
+            <FormField label="Tags" name="tags" value={form.tags} onChange={handleChange} placeholder="client-a, monthly, overdue-risk" />
             <FormField label="Notes" name="notes" type="textarea" value={form.notes} onChange={handleChange} placeholder="Additional details…" />
             <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", marginTop: "0.5rem" }}>
               <button type="button" className="btn-ghost" onClick={() => { setShowModal(false); setForm({ ...EMPTY_FORM }); setEditingId(null); }}>Cancel</button>

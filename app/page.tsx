@@ -3,11 +3,23 @@
 import { useEffect, useMemo, useState } from "react";
 import * as Evolu from "@evolu/common";
 import { useQuery } from "@evolu/react";
-import { NET_WORTH_SNAPSHOT_SCHEMA_VERSION, useEvolu } from "@/lib/evolu";
+import {
+  NET_WORTH_SNAPSHOT_SCHEMA_VERSION,
+  SNAPSHOT_AUTOMATION_SETTINGS_KEY,
+  useEvolu,
+} from "@/lib/evolu";
 import { formatCurrency } from "@/lib/currencies";
 import MarketDataStatus from "@/components/MarketDataStatus";
 import StatCard from "@/components/StatCard";
+import Modal from "@/components/Modal";
+import FormField from "@/components/FormField";
 import Link from "next/link";
+import {
+  ASSET_CLASSES,
+  DEFAULT_ALLOCATION_TARGETS,
+  DEFAULT_SNAPSHOT_AUTOMATION_SETTINGS,
+  parseTags,
+} from "@/lib/portfolio";
 import {
   ArrowUp,
   ArrowDown,
@@ -18,6 +30,7 @@ import {
   Home,
   BarChart3,
   Settings,
+  NotebookPen,
 } from "lucide-react";
 
 export default function Dashboard() {
@@ -39,7 +52,7 @@ export default function Dashboard() {
       evolu.createQuery((db) =>
         db
           .selectFrom("cryptoHolding")
-          .select(["symbol", "amount"])
+          .select(["symbol", "amount", "tags"])
           .where("isDeleted", "is not", Evolu.sqliteTrue)
           .where("deleted", "is not", Evolu.sqliteTrue),
       ),
@@ -50,7 +63,7 @@ export default function Dashboard() {
       evolu.createQuery((db) =>
         db
           .selectFrom("stockHolding")
-          .select(["ticker", "shares", "currency"])
+          .select(["ticker", "shares", "currency", "tags"])
           .where("isDeleted", "is not", Evolu.sqliteTrue)
           .where("deleted", "is not", Evolu.sqliteTrue),
       ),
@@ -61,7 +74,7 @@ export default function Dashboard() {
       evolu.createQuery((db) =>
         db
           .selectFrom("property")
-          .select(["estimatedValue", "remainingLoan"])
+          .select(["estimatedValue", "remainingLoan", "tags"])
           .where("isDeleted", "is not", Evolu.sqliteTrue)
           .where("deleted", "is not", Evolu.sqliteTrue),
       ),
@@ -72,9 +85,44 @@ export default function Dashboard() {
       evolu.createQuery((db) =>
         db
           .selectFrom("savingsAccount")
-          .select(["balance"])
+          .select(["balance", "tags"])
           .where("isDeleted", "is not", Evolu.sqliteTrue)
           .where("deleted", "is not", Evolu.sqliteTrue),
+      ),
+    [evolu],
+  );
+  const receivableQ = useMemo(
+    () =>
+      evolu.createQuery((db) =>
+        db
+          .selectFrom("receivable")
+          .select(["amount", "status", "tags"])
+          .where("isDeleted", "is not", Evolu.sqliteTrue)
+          .where("deleted", "is not", Evolu.sqliteTrue),
+      ),
+    [evolu],
+  );
+  const allocationQ = useMemo(
+    () =>
+      evolu.createQuery((db) =>
+        db
+          .selectFrom("allocationTarget")
+          .selectAll()
+          .where("isDeleted", "is not", Evolu.sqliteTrue)
+          .where("deleted", "is not", Evolu.sqliteTrue),
+      ),
+    [evolu],
+  );
+  const noteQ = useMemo(
+    () =>
+      evolu.createQuery((db) =>
+        db
+          .selectFrom("portfolioNote")
+          .selectAll()
+          .where("isDeleted", "is not", Evolu.sqliteTrue)
+          .where("deleted", "is not", Evolu.sqliteTrue)
+          .orderBy("noteDate", "desc")
+          .limit(5),
       ),
     [evolu],
   );
@@ -83,7 +131,7 @@ export default function Dashboard() {
       evolu.createQuery((db) =>
         db
           .selectFrom("netWorthSnapshot")
-          .select(["netWorth", "schemaVersion"])
+          .select(["snapshotDate", "netWorth", "schemaVersion"])
           .where("isDeleted", "is not", Evolu.sqliteTrue)
           .where("deleted", "is not", Evolu.sqliteTrue)
           .orderBy("snapshotDate", "desc")
@@ -96,7 +144,20 @@ export default function Dashboard() {
   const stocks = useQuery(stockQ);
   const properties = useQuery(propertyQ);
   const savings = useQuery(savingsQ);
+  const receivables = useQuery(receivableQ);
+  const allocationTargets = useQuery(allocationQ);
+  const portfolioNotes = useQuery(noteQ);
   const snapshots = useQuery(snapshotQ);
+  const [showNoteModal, setShowNoteModal] = useState(false);
+  const [noteForm, setNoteForm] = useState({
+    title: "",
+    body: "",
+    tags: "",
+  });
+  const [autoSnapshotMsg, setAutoSnapshotMsg] = useState<string | null>(null);
+  const [todayKey, setTodayKey] = useState(
+    new Date().toISOString().split("T")[0],
+  );
 
   // ── Live prices ────────────────────────────────────────────────────────────
   const [cryptoPrices, setCryptoPrices] = useState<
@@ -117,6 +178,14 @@ export default function Dashboard() {
     error: null as string | null,
     fetchedAt: null as string | null,
   });
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const today = new Date().toISOString().split("T")[0];
+      setTodayKey((current) => (current === today ? current : today));
+    }, 60_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   useEffect(() => {
     const symbols = cryptos
@@ -192,9 +261,12 @@ export default function Dashboard() {
     0,
   );
   const savingsValue = savings.reduce((s, sv) => s + (sv.balance as number), 0);
+  const receivablesValue = receivables
+    .filter((item) => String(item.status) !== "PAID")
+    .reduce((sum, item) => sum + (item.amount as number), 0);
 
   const totalAssets =
-    cryptoValue + stocksValue + propertyValue + savingsValue;
+    cryptoValue + stocksValue + propertyValue + savingsValue + receivablesValue;
   const totalLiabilities = mortgageDebt;
   const netWorth = totalAssets - totalLiabilities;
   const prevSnapshot = snapshots[1];
@@ -223,10 +295,129 @@ export default function Dashboard() {
       color: "#10b981",
       href: "/savings",
     },
+    {
+      label: "Receivables",
+      value: receivablesValue,
+      color: "#06b6d4",
+      href: "/receivables",
+    },
     { label: "Stocks", value: stocksValue, color: "#f59e0b", href: "/stocks" },
     { label: "Crypto", value: cryptoValue, color: "#f97316", href: "/crypto" },
   ].filter((i) => i.value > 0);
   const total = allocationItems.reduce((s, i) => s + i.value, 0) || 1;
+  const targetMap = ASSET_CLASSES.reduce<Record<(typeof ASSET_CLASSES)[number], number>>(
+    (acc, assetClass) => {
+      const existing = allocationTargets.find(
+        (row) => String(row.assetClass) === assetClass,
+      );
+      acc[assetClass] =
+        typeof existing?.targetPercent === "number"
+          ? (existing.targetPercent as number)
+          : DEFAULT_ALLOCATION_TARGETS[assetClass];
+      return acc;
+    },
+    { ...DEFAULT_ALLOCATION_TARGETS },
+  );
+  const actualMap = {
+    Property: propertyValue,
+    Savings: savingsValue,
+    Stocks: stocksValue,
+    Crypto: cryptoValue,
+    Receivables: receivablesValue,
+  };
+  const allocationComparison = ASSET_CLASSES.map((assetClass) => {
+    const actualPercent = totalAssets > 0 ? (actualMap[assetClass] / totalAssets) * 100 : 0;
+    const targetPercent = targetMap[assetClass];
+    return {
+      assetClass,
+      actualPercent,
+      targetPercent,
+      diffPercent: actualPercent - targetPercent,
+      actualValue: actualMap[assetClass],
+    };
+  });
+  const allTags = [
+    ...cryptos.flatMap((row) => parseTags((row as { tags?: string | null }).tags ?? null)),
+    ...stocks.flatMap((row) => parseTags((row as { tags?: string | null }).tags ?? null)),
+    ...properties.flatMap((row) => parseTags((row as { tags?: string | null }).tags ?? null)),
+    ...savings.flatMap((row) => parseTags((row as { tags?: string | null }).tags ?? null)),
+    ...receivables.flatMap((row) => parseTags((row as { tags?: string | null }).tags ?? null)),
+    ...portfolioNotes.flatMap((row) => parseTags((row.tags as string | null) ?? null)),
+  ];
+  const tagCloud = [...new Set(allTags)].slice(0, 20);
+  const pricingReady =
+    (cryptos.length === 0 || cryptoStatus.fetchedAt !== null || cryptoStatus.error !== null) &&
+    (stocks.length === 0 || stockStatus.fetchedAt !== null || stockStatus.error !== null);
+
+  useEffect(() => {
+    if (!pricingReady) return;
+    if (totalAssets <= 0 && totalLiabilities <= 0) return;
+
+    let automation = DEFAULT_SNAPSHOT_AUTOMATION_SETTINGS;
+    try {
+      const stored = localStorage.getItem(SNAPSHOT_AUTOMATION_SETTINGS_KEY);
+      if (stored) automation = { ...automation, ...JSON.parse(stored) };
+    } catch {
+      automation = DEFAULT_SNAPSHOT_AUTOMATION_SETTINGS;
+    }
+
+    if (!automation.dailyOnOpen) return;
+    const alreadyToday =
+      currentSnapshot && String(currentSnapshot.snapshotDate) === todayKey;
+    if (alreadyToday) return;
+
+    evolu.insert("netWorthSnapshot", {
+      snapshotDate: todayKey,
+      totalAssets,
+      totalLiabilities,
+      netWorth,
+      cryptoValue,
+      stocksValue,
+      propertyValue,
+      savingsValue,
+      receivablesValue,
+      schemaVersion: NET_WORTH_SNAPSHOT_SCHEMA_VERSION as never,
+      deleted: Evolu.sqliteFalse,
+    } as never);
+    const showTimeout = window.setTimeout(() => {
+      setAutoSnapshotMsg(`Automatic daily snapshot created for ${todayKey}.`);
+    }, 0);
+    const clearTimeoutId = window.setTimeout(() => setAutoSnapshotMsg(null), 5000);
+    return () => {
+      window.clearTimeout(showTimeout);
+      window.clearTimeout(clearTimeoutId);
+    };
+  }, [
+    cryptoValue,
+    currentSnapshot,
+    evolu,
+    netWorth,
+    pricingReady,
+    propertyValue,
+    receivablesValue,
+    savingsValue,
+    stocksValue,
+    todayKey,
+    totalAssets,
+    totalLiabilities,
+  ]);
+
+  function handleSaveNote(e: React.FormEvent) {
+    e.preventDefault();
+    evolu.insert("portfolioNote", {
+      noteDate: new Date().toISOString().split("T")[0],
+      title: noteForm.title.trim(),
+      body: noteForm.body.trim(),
+      tags: noteForm.tags.trim() || null,
+      deleted: Evolu.sqliteFalse,
+    } as never);
+    setNoteForm({ title: "", body: "", tags: "" });
+    setShowNoteModal(false);
+  }
+
+  function handleDeleteNote(id: string) {
+    evolu.update("portfolioNote", { id: id as never, deleted: Evolu.sqliteTrue } as never);
+  }
 
   const quickItems = [
     {
@@ -269,6 +460,21 @@ export default function Dashboard() {
 
   return (
     <div>
+      {autoSnapshotMsg && (
+        <div
+          style={{
+            marginBottom: "1rem",
+            padding: "0.75rem 1rem",
+            borderRadius: "8px",
+            border: "1px solid rgba(59,130,246,0.25)",
+            background: "rgba(59,130,246,0.08)",
+            color: "var(--muted)",
+            fontSize: "0.8rem",
+          }}
+        >
+          {autoSnapshotMsg}
+        </div>
+      )}
       <div style={{ marginBottom: "2rem" }}>
         <h1
           style={{
@@ -414,12 +620,86 @@ export default function Dashboard() {
           icon={<Landmark size={16} />}
         />
         <StatCard
+          label="Receivables"
+          value={formatCurrency(receivablesValue, "CZK")}
+          accent="#06b6d4"
+          icon={<NotebookPen size={16} />}
+        />
+        <StatCard
           label="Crypto"
           value={formatCurrency(cryptoValue, "CZK")}
           sub={`${cryptos.length} assets`}
           accent="#f97316"
           icon={<Bitcoin size={16} />}
         />
+      </div>
+
+      <div className="card" style={{ marginBottom: "1.5rem" }}>
+        <h2 style={{ margin: "0 0 1.25rem", fontSize: "1rem", fontWeight: 700 }}>
+          Target vs Actual Allocation
+        </h2>
+        <div style={{ display: "grid", gap: "0.85rem" }}>
+          {allocationComparison.map((item) => (
+            <div key={item.assetClass}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: "1rem",
+                  fontSize: "0.8rem",
+                  marginBottom: "0.3rem",
+                }}
+              >
+                <span style={{ fontWeight: 600 }}>{item.assetClass}</span>
+                <span style={{ color: "var(--muted)" }}>
+                  actual {item.actualPercent.toFixed(1)}% · target {item.targetPercent.toFixed(1)}% ·
+                  {" "}
+                  <span
+                    style={{
+                      color:
+                        Math.abs(item.diffPercent) <= 2
+                          ? "var(--green)"
+                          : item.diffPercent > 0
+                            ? "var(--yellow)"
+                            : "var(--accent)",
+                    }}
+                  >
+                    {item.diffPercent >= 0 ? "+" : ""}
+                    {item.diffPercent.toFixed(1)} pp
+                  </span>
+                </span>
+              </div>
+              <div
+                style={{
+                  position: "relative",
+                  height: "8px",
+                  background: "var(--surface-3)",
+                  borderRadius: "999px",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    width: `${Math.min(100, item.actualPercent)}%`,
+                    background: "linear-gradient(90deg, #3b82f6 0%, #10b981 100%)",
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    left: `${Math.min(100, item.targetPercent)}%`,
+                    top: "-2px",
+                    bottom: "-2px",
+                    width: "2px",
+                    background: "#f59e0b",
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* ── Bottom row ─────────────────────────────────────────── */}
@@ -598,6 +878,185 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1.4fr) minmax(280px, 0.8fr)",
+          gap: "1.5rem",
+          marginTop: "1.5rem",
+        }}
+      >
+        <div className="card">
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "1rem",
+            }}
+          >
+            <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>
+              Portfolio Notes
+            </h2>
+            <button className="btn-primary" onClick={() => setShowNoteModal(true)}>
+              + Add Note
+            </button>
+          </div>
+          {portfolioNotes.length === 0 ? (
+            <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
+              No portfolio notes yet. Add notes for rebalancing decisions,
+              watchlist items, or strategy updates.
+            </p>
+          ) : (
+            <div style={{ display: "grid", gap: "0.85rem" }}>
+              {portfolioNotes.map((note) => (
+                <div
+                  key={note.id as string}
+                  style={{
+                    padding: "0.9rem 1rem",
+                    borderRadius: "10px",
+                    background: "var(--surface-2)",
+                    border: "1px solid var(--border)",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: "1rem",
+                      marginBottom: "0.4rem",
+                    }}
+                  >
+                    <strong>{note.title as string}</strong>
+                    <button
+                      className="btn-ghost"
+                      onClick={() => handleDeleteNote(note.id as string)}
+                      style={{ fontSize: "0.72rem" }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                  <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginBottom: "0.45rem" }}>
+                    {new Date(String(note.noteDate)).toLocaleDateString("cs-CZ")}
+                  </div>
+                  <div style={{ fontSize: "0.84rem", lineHeight: 1.6 }}>
+                    {note.body as string}
+                  </div>
+                  {parseTags((note.tags as string | null) ?? null).length > 0 && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", marginTop: "0.65rem" }}>
+                      {parseTags((note.tags as string | null) ?? null).map((tag) => (
+                        <span
+                          key={tag}
+                          style={{
+                            padding: "0.2rem 0.5rem",
+                            borderRadius: "999px",
+                            background: "rgba(59,130,246,0.12)",
+                            color: "var(--accent)",
+                            fontSize: "0.72rem",
+                          }}
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="card">
+          <h2 style={{ margin: "0 0 1rem", fontSize: "1rem", fontWeight: 700 }}>
+            Tag Cloud
+          </h2>
+          {tagCloud.length === 0 ? (
+            <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
+              No tags yet. Add tags to assets or notes to make the portfolio easier
+              to filter mentally.
+            </p>
+          ) : (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.55rem" }}>
+              {tagCloud.map((tag) => (
+                <span
+                  key={tag}
+                  style={{
+                    padding: "0.35rem 0.7rem",
+                    borderRadius: "999px",
+                    background: "rgba(16,185,129,0.1)",
+                    border: "1px solid rgba(16,185,129,0.18)",
+                    fontSize: "0.78rem",
+                    color: "var(--foreground)",
+                  }}
+                >
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {showNoteModal && (
+        <Modal
+          title="Add Portfolio Note"
+          onClose={() => {
+            setShowNoteModal(false);
+            setNoteForm({ title: "", body: "", tags: "" });
+          }}
+        >
+          <form
+            onSubmit={handleSaveNote}
+            style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+          >
+            <FormField
+              label="Title"
+              name="title"
+              value={noteForm.title}
+              onChange={(e) =>
+                setNoteForm((current) => ({ ...current, title: e.target.value }))
+              }
+              required
+            />
+            <FormField
+              label="Body"
+              name="body"
+              type="textarea"
+              value={noteForm.body}
+              onChange={(e) =>
+                setNoteForm((current) => ({ ...current, body: e.target.value }))
+              }
+              required
+            />
+            <FormField
+              label="Tags"
+              name="tags"
+              value={noteForm.tags}
+              onChange={(e) =>
+                setNoteForm((current) => ({ ...current, tags: e.target.value }))
+              }
+              placeholder="rebalance, europe, watchlist"
+            />
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => {
+                  setShowNoteModal(false);
+                  setNoteForm({ title: "", body: "", tags: "" });
+                }}
+              >
+                Cancel
+              </button>
+              <button type="submit" className="btn-primary">
+                Save Note
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 }

@@ -7,7 +7,7 @@ import Modal from "@/components/Modal";
 import FormField from "@/components/FormField";
 import { formatCurrency } from "@/lib/currencies";
 
-const EMPTY = { name: "", bank: "", balance: "", currency: "CZK", interestRate: "", notes: "" };
+const EMPTY = { name: "", bank: "", balance: "", currency: "CZK", interestRate: "", tags: "", notes: "" };
 
 export default function SavingsPage() {
   const evolu = useEvolu();
@@ -38,6 +38,7 @@ export default function SavingsPage() {
       balance: parseFloat(form.balance as string),
       currency: form.currency,
       interestRate: form.interestRate ? parseFloat(form.interestRate as string) : null,
+      tags: form.tags.trim() || null,
       notes: form.notes.trim() || null,
     };
     if (editingId) {
@@ -59,6 +60,7 @@ export default function SavingsPage() {
       balance: String(item.balance as number),
       currency: item.currency as string,
       interestRate: item.interestRate != null ? String(item.interestRate as number) : "",
+      tags: (item.tags as string) ?? "",
       notes: (item.notes as string) ?? "",
     });
     setEditingId(item.id as string);
@@ -131,6 +133,7 @@ export default function SavingsPage() {
               <FormField label="Currency" name="currency" value={form.currency} onChange={handleChange} options={[{ value: "CZK", label: "CZK" }, { value: "EUR", label: "EUR" }, { value: "USD", label: "USD" }]} />
             </div>
             <FormField label="Interest Rate % p.a." name="interestRate" type="number" value={form.interestRate} onChange={handleChange} placeholder="e.g. 4.5" step="0.01" min="0" />
+            <FormField label="Tags" name="tags" value={form.tags} onChange={handleChange} placeholder="emergency-fund, cash, reserve" />
             <FormField label="Notes" name="notes" type="textarea" value={form.notes} onChange={handleChange} placeholder="Any additional notes…" />
             <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", marginTop: "0.5rem" }}>
               <button type="button" className="btn-ghost" onClick={() => { setShowModal(false); setForm({ ...EMPTY }); setEditingId(null); }}>Cancel</button>

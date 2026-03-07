@@ -7,7 +7,7 @@ import Modal from "@/components/Modal";
 import FormField from "@/components/FormField";
 import { formatCurrency } from "@/lib/currencies";
 
-const emptyForm = { name: "", address: "", estimatedValue: "", currency: "CZK", hasMortgage: false, originalLoan: "", remainingLoan: "", monthlyPayment: "", interestRate: "", mortgageStart: "", mortgageEnd: "", notes: "" };
+const emptyForm = { name: "", address: "", estimatedValue: "", currency: "CZK", hasMortgage: false, originalLoan: "", remainingLoan: "", monthlyPayment: "", interestRate: "", mortgageStart: "", mortgageEnd: "", tags: "", notes: "" };
 
 export default function PropertyPage() {
   const evolu = useEvolu();
@@ -44,6 +44,7 @@ export default function PropertyPage() {
       interestRate: form.hasMortgage && form.interestRate ? parseFloat(form.interestRate) : null,
       mortgageStart: form.hasMortgage && form.mortgageStart ? form.mortgageStart : null,
       mortgageEnd: form.hasMortgage && form.mortgageEnd ? form.mortgageEnd : null,
+      tags: form.tags.trim() || null,
       notes: form.notes.trim() || null,
     };
     if (editingId) {
@@ -71,6 +72,7 @@ export default function PropertyPage() {
       interestRate: p.interestRate != null ? String(p.interestRate as number) : "",
       mortgageStart: (p.mortgageStart as string) ?? "",
       mortgageEnd: (p.mortgageEnd as string) ?? "",
+      tags: (p.tags as string) ?? "",
       notes: (p.notes as string) ?? "",
     });
     setEditingId(p.id as string);
@@ -194,6 +196,7 @@ export default function PropertyPage() {
                 <FormField label="Mortgage End" name="mortgageEnd" type="date" value={form.mortgageEnd} onChange={handleChange} />
               </>
             )}
+            <FormField label="Tags" name="tags" value={form.tags} onChange={handleChange} placeholder="rental, prague, mortgage" />
             <FormField label="Notes" name="notes" type="textarea" value={form.notes} onChange={handleChange} placeholder="Optional notes..." rows={3} />
             <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", marginTop: "0.5rem" }}>
               <button type="button" className="btn-ghost" onClick={() => { setShowModal(false); setForm(emptyForm); setEditingId(null); }}>Cancel</button>

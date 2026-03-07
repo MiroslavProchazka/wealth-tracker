@@ -8,17 +8,29 @@ import {
 } from "@/lib/evolu";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, BarChart, Bar,
+  ResponsiveContainer, BarChart, Bar, LineChart, Line,
 } from "recharts";
 import { formatCurrency } from "@/lib/currencies";
 import MarketDataStatus from "@/components/MarketDataStatus";
+import Modal from "@/components/Modal";
+import FormField from "@/components/FormField";
 
 export default function HistoryPage() {
   const evolu = useEvolu();
   const [snapping, setSnapping] = useState(false);
-  const [view, setView] = useState<"networth" | "breakdown">("networth");
+  const [view, setView] = useState<"networth" | "breakdown" | "asset-trend">("networth");
   const [autoSnapped, setAutoSnapped] = useState(false);
   const [autoSnapshotMsg, setAutoSnapshotMsg] = useState<string | null>(null);
+  const [showCashflowModal, setShowCashflowModal] = useState(false);
+  const [cashflowForm, setCashflowForm] = useState({
+    entryDate: new Date().toISOString().split("T")[0],
+    type: "CONTRIBUTION",
+    category: "Portfolio Contribution",
+    amount: "",
+    currency: "CZK",
+    tags: "",
+    notes: "",
+  });
 
   // ── Queries ──────────────────────────────────────────────────────────────
   // Include symbol/ticker so we can look up live prices
@@ -27,6 +39,7 @@ export default function HistoryPage() {
   const propertyQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("property").select(["estimatedValue", "remainingLoan"]).where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue)), [evolu]);
   const savingsQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("savingsAccount").select(["balance"]).where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue)), [evolu]);
   const recQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("receivable").select(["amount", "status"]).where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue)), [evolu]);
+  const cashflowQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("cashflowEntry").selectAll().where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue).orderBy("entryDate", "desc")), [evolu]);
   const snapshotQ = useMemo(() => evolu.createQuery((db) => db.selectFrom("netWorthSnapshot").selectAll().where("isDeleted", "is not", Evolu.sqliteTrue).where("deleted", "is not", Evolu.sqliteTrue).orderBy("snapshotDate", "asc")), [evolu]);
 
   const cryptos = useQuery(cryptoQ);
@@ -34,6 +47,7 @@ export default function HistoryPage() {
   const properties = useQuery(propertyQ);
   const savings = useQuery(savingsQ);
   const receivables = useQuery(recQ);
+  const cashflowEntries = useQuery(cashflowQ);
   const snapshots = useQuery(snapshotQ);
 
   // ── Live prices (same pattern as dashboard) ───────────────────────────────
@@ -224,6 +238,50 @@ export default function HistoryPage() {
           return sum + diff / (1000 * 60 * 60 * 24);
         }, 0) /
         (snapshots.length - 1);
+  const signedCashflow = cashflowEntries.reduce((sum, entry) => {
+    const amount = entry.amount as number;
+    return sum + (String(entry.type) === "WITHDRAWAL" ? -amount : amount);
+  }, 0);
+  const contributionTotal = cashflowEntries
+    .filter((entry) => String(entry.type) === "CONTRIBUTION")
+    .reduce((sum, entry) => sum + (entry.amount as number), 0);
+  const withdrawalTotal = cashflowEntries
+    .filter((entry) => String(entry.type) === "WITHDRAWAL")
+    .reduce((sum, entry) => sum + (entry.amount as number), 0);
+
+  function handleCashflowChange(
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
+  ) {
+    setCashflowForm((current) => ({ ...current, [e.target.name]: e.target.value }));
+  }
+
+  function handleSaveCashflow(e: React.FormEvent) {
+    e.preventDefault();
+    evolu.insert("cashflowEntry", {
+      entryDate: cashflowForm.entryDate,
+      type: cashflowForm.type,
+      category: cashflowForm.category.trim(),
+      amount: parseFloat(cashflowForm.amount),
+      currency: cashflowForm.currency,
+      tags: cashflowForm.tags.trim() || null,
+      notes: cashflowForm.notes.trim() || null,
+      deleted: Evolu.sqliteFalse,
+    } as never);
+    setCashflowForm({
+      entryDate: new Date().toISOString().split("T")[0],
+      type: "CONTRIBUTION",
+      category: "Portfolio Contribution",
+      amount: "",
+      currency: "CZK",
+      tags: "",
+      notes: "",
+    });
+    setShowCashflowModal(false);
+  }
+
+  function handleDeleteCashflow(id: string) {
+    evolu.update("cashflowEntry", { id: id as never, deleted: Evolu.sqliteTrue } as never);
+  }
 
   return (
     <div>
@@ -238,7 +296,12 @@ export default function HistoryPage() {
           <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 700 }}>History & Charts</h1>
           <p style={{ color: "var(--muted)", margin: "0.35rem 0 0", fontSize: "0.875rem" }}>Net worth over time · {snapshots.length} snapshot{snapshots.length !== 1 ? "s" : ""} · auto-snapshot weekly</p>
         </div>
-        <button className="btn-primary" onClick={takeSnapshot} disabled={snapping || !pricesLoaded}>{snapping ? "Saving…" : !pricesLoaded ? "Loading prices…" : "📸 Take Snapshot"}</button>
+        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+          <button className="btn-ghost" onClick={() => setShowCashflowModal(true)}>
+            + Cashflow
+          </button>
+          <button className="btn-primary" onClick={takeSnapshot} disabled={snapping || !pricesLoaded}>{snapping ? "Saving…" : !pricesLoaded ? "Loading prices…" : "📸 Take Snapshot"}</button>
+        </div>
       </div>
 
       <MarketDataStatus
@@ -262,6 +325,7 @@ export default function HistoryPage() {
           { label: "Best Snapshot", value: bestSnapshot ? formatCurrency(bestSnapshot.netWorth as number, "CZK") : "—", color: "var(--accent)" },
           { label: "Avg Cadence", value: averageSnapshotCadenceDays === null ? "—" : `${averageSnapshotCadenceDays.toFixed(1)} d`, color: "var(--muted)" },
           { label: "Next Auto Snapshot", value: nextAutoSnapshotDate ? nextAutoSnapshotDate.toLocaleDateString("cs-CZ") : "—", color: "var(--muted)" },
+          { label: "Net Cashflow", value: `${signedCashflow >= 0 ? "+" : ""}${formatCurrency(signedCashflow, "CZK")}`, color: signedCashflow >= 0 ? "var(--green)" : "var(--red)" },
         ].map((s) => (
           <div key={s.label} className="card">
             <div style={{ fontSize: "0.65rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>{s.label}</div>
@@ -271,9 +335,9 @@ export default function HistoryPage() {
       </div>
 
       <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.25rem" }}>
-        {(["networth", "breakdown"] as const).map((v) => (
+        {(["networth", "breakdown", "asset-trend"] as const).map((v) => (
           <button key={v} onClick={() => setView(v)} style={{ padding: "0.4rem 1rem", borderRadius: "6px", border: "1px solid var(--card-border)", background: view === v ? "var(--accent)" : "transparent", color: view === v ? "white" : "var(--muted)", cursor: "pointer", fontSize: "0.8rem", fontWeight: 500 }}>
-            {v === "networth" ? "Net Worth" : "Asset Breakdown"}
+            {v === "networth" ? "Net Worth" : v === "breakdown" ? "Asset Breakdown" : "Asset Trends"}
           </button>
         ))}
       </div>
@@ -301,7 +365,7 @@ export default function HistoryPage() {
               <Area type="monotone" dataKey="Net Worth" stroke="#3b82f6" fill="url(#netWorthGrad)" strokeWidth={2.5} />
             </AreaChart>
           </ResponsiveContainer>
-        ) : (
+        ) : view === "breakdown" ? (
           <ResponsiveContainer width="100%" height={360}>
             <BarChart data={chartData} margin={{ top: 10, right: 10, left: 20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#2d3748" />
@@ -316,6 +380,63 @@ export default function HistoryPage() {
               <Bar dataKey="Receivables" stackId="a" fill="#06b6d4" radius={[4,4,0,0]} />
             </BarChart>
           </ResponsiveContainer>
+        ) : (
+          <ResponsiveContainer width="100%" height={360}>
+            <LineChart data={chartData} margin={{ top: 10, right: 10, left: 20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#2d3748" />
+              <XAxis dataKey="date" tick={{ fill: "#64748b", fontSize: 11 }} />
+              <YAxis tick={{ fill: "#64748b", fontSize: 11 }} tickFormatter={(v) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
+              <Tooltip contentStyle={{ background: "#1a1f2e", border: "1px solid #2d3748", borderRadius: "8px" }} formatter={(value: number | undefined, name: string | undefined) => [formatCurrency(value ?? 0, "CZK"), name ?? ""]} />
+              <Legend wrapperStyle={{ color: "#64748b", fontSize: "0.8rem" }} />
+              <Line type="monotone" dataKey="Property" stroke="#8b5cf6" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="Savings" stroke="#10b981" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="Stocks" stroke="#f59e0b" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="Crypto" stroke="#f97316" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="Receivables" stroke="#06b6d4" strokeWidth={2} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      <div className="card" style={{ marginBottom: "1.5rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+          <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>Manual Cashflow / Contributions</h2>
+          <div style={{ fontSize: "0.78rem", color: "var(--muted)" }}>
+            Contributions {formatCurrency(contributionTotal, "CZK")} · Withdrawals {formatCurrency(withdrawalTotal, "CZK")}
+          </div>
+        </div>
+        {cashflowEntries.length === 0 ? (
+          <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
+            No cashflow entries yet. Log contributions and withdrawals so net worth
+            changes can be interpreted against actual capital movement.
+          </p>
+        ) : (
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr><th>Date</th><th>Type</th><th>Category</th><th>Amount</th><th>Notes</th><th>Actions</th></tr>
+              </thead>
+              <tbody>
+                {cashflowEntries.map((entry) => (
+                  <tr key={entry.id as string}>
+                    <td style={{ color: "var(--muted)" }}>{new Date(String(entry.entryDate)).toLocaleDateString("cs-CZ")}</td>
+                    <td>{String(entry.type)}</td>
+                    <td>{String(entry.category)}</td>
+                    <td style={{ color: String(entry.type) === "WITHDRAWAL" ? "var(--red)" : "var(--green)", fontWeight: 600 }}>
+                      {String(entry.type) === "WITHDRAWAL" ? "-" : "+"}
+                      {formatCurrency(entry.amount as number, String(entry.currency))}
+                    </td>
+                    <td style={{ color: "var(--muted)" }}>{(entry.notes as string) ?? "—"}</td>
+                    <td>
+                      <button className="btn-ghost" onClick={() => handleDeleteCashflow(entry.id as string)}>
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
@@ -345,6 +466,50 @@ export default function HistoryPage() {
           </table>
           </div>
         </div>
+      )}
+
+      {showCashflowModal && (
+        <Modal
+          title="Add Cashflow Entry"
+          onClose={() => setShowCashflowModal(false)}
+        >
+          <form onSubmit={handleSaveCashflow} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+              <FormField label="Date" name="entryDate" type="date" value={cashflowForm.entryDate} onChange={handleCashflowChange} required />
+              <FormField
+                label="Type"
+                name="type"
+                value={cashflowForm.type}
+                onChange={handleCashflowChange}
+                options={[
+                  { value: "CONTRIBUTION", label: "Contribution" },
+                  { value: "WITHDRAWAL", label: "Withdrawal" },
+                ]}
+              />
+            </div>
+            <FormField label="Category" name="category" value={cashflowForm.category} onChange={handleCashflowChange} required />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+              <FormField label="Amount" name="amount" type="number" value={cashflowForm.amount} onChange={handleCashflowChange} step="0.01" min="0" required />
+              <FormField
+                label="Currency"
+                name="currency"
+                value={cashflowForm.currency}
+                onChange={handleCashflowChange}
+                options={[
+                  { value: "CZK", label: "CZK" },
+                  { value: "EUR", label: "EUR" },
+                  { value: "USD", label: "USD" },
+                ]}
+              />
+            </div>
+            <FormField label="Tags" name="tags" value={cashflowForm.tags} onChange={handleCashflowChange} placeholder="salary, rebalance, transfer" />
+            <FormField label="Notes" name="notes" type="textarea" value={cashflowForm.notes} onChange={handleCashflowChange} />
+            <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
+              <button type="button" className="btn-ghost" onClick={() => setShowCashflowModal(false)}>Cancel</button>
+              <button type="submit" className="btn-primary">Save Entry</button>
+            </div>
+          </form>
+        </Modal>
       )}
     </div>
   );

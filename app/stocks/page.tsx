@@ -116,7 +116,7 @@ const SECTOR_OPTIONS = [
 
 const emptyForm = {
   ticker: "", name: "", shares: "", currency: "USD",
-  buyPrice: "", exchange: "", sector: "", notes: "",
+  buyPrice: "", exchange: "", sector: "", tags: "", notes: "",
 };
 
 const emptyAlert: { ticker: string; direction: "above" | "below"; threshold: string } = {
@@ -310,6 +310,7 @@ export default function StocksPage() {
         buyPrice: form.buyPrice ? parseFloat(form.buyPrice) : null,
         exchange: form.exchange.trim() || null,
         sector: form.sector.trim() || null,
+        tags: form.tags.trim() || null,
         notes: form.notes.trim() || null,
       } as never);
       setForm(emptyForm); setEditingId(null); setShowAddModal(false); setSearchResults([]);
@@ -322,6 +323,7 @@ export default function StocksPage() {
         buyPrice: form.buyPrice ? parseFloat(form.buyPrice) : null,
         exchange: form.exchange.trim() || null,
         sector: form.sector.trim() || null,
+        tags: form.tags.trim() || null,
         notes: form.notes.trim() || null,
         deleted: Evolu.sqliteFalse,
       } as never);
@@ -339,6 +341,7 @@ export default function StocksPage() {
       buyPrice: h.buyPrice != null ? String(h.buyPrice as number) : "",
       exchange: (h.exchange as string) ?? "",
       sector: (h.sector as string) ?? "",
+      tags: (h.tags as string) ?? "",
       notes: (h.notes as string) ?? "",
     });
     setEditingId(h.id as string);
@@ -903,6 +906,8 @@ export default function StocksPage() {
                 onChange={handleFormChange} options={SECTOR_OPTIONS} />
             </div>
 
+            <FormField label="Tagy" name="tags" value={form.tags}
+              onChange={handleFormChange} placeholder="dividend, usa, growth" />
             <FormField label="Poznámky" name="notes" type="textarea" value={form.notes}
               onChange={handleFormChange} placeholder="Nepovinné…" rows={2} />
 

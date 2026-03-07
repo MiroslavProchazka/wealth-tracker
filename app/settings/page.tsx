@@ -9,7 +9,17 @@ import {
   buildBackupPayload,
   parseBackupPayload,
 } from "@/lib/backup";
-import { getRelayUrl, setRelayUrl, useEvolu } from "@/lib/evolu";
+import {
+  getRelayUrl,
+  setRelayUrl,
+  SNAPSHOT_AUTOMATION_SETTINGS_KEY,
+  useEvolu,
+} from "@/lib/evolu";
+import {
+  ASSET_CLASSES,
+  DEFAULT_ALLOCATION_TARGETS,
+  DEFAULT_SNAPSHOT_AUTOMATION_SETTINGS,
+} from "@/lib/portfolio";
 
 // Inner component — loads appOwner async to avoid SSR suspend (use() hangs in Node.js)
 function SettingsContent() {
@@ -28,6 +38,13 @@ function SettingsContent() {
   const [backupStatus, setBackupStatus] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [allocationStatus, setAllocationStatus] = useState<string | null>(null);
+  const [automationSettings, setAutomationSettings] = useState(
+    DEFAULT_SNAPSHOT_AUTOMATION_SETTINGS,
+  );
+  const [allocationDrafts, setAllocationDrafts] = useState<
+    Record<string, string>
+  >({});
 
   // Relay settings
   const [relayUrl, setRelayUrlState] = useState("");
@@ -101,6 +118,39 @@ function SettingsContent() {
       ),
     [evolu],
   );
+  const cashflowQ = useMemo(
+    () =>
+      evolu.createQuery((db) =>
+        db
+          .selectFrom("cashflowEntry")
+          .selectAll()
+          .where("isDeleted", "is not", Evolu.sqliteTrue)
+          .where("deleted", "is not", Evolu.sqliteTrue),
+      ),
+    [evolu],
+  );
+  const allocationQ = useMemo(
+    () =>
+      evolu.createQuery((db) =>
+        db
+          .selectFrom("allocationTarget")
+          .selectAll()
+          .where("isDeleted", "is not", Evolu.sqliteTrue)
+          .where("deleted", "is not", Evolu.sqliteTrue),
+      ),
+    [evolu],
+  );
+  const portfolioNoteQ = useMemo(
+    () =>
+      evolu.createQuery((db) =>
+        db
+          .selectFrom("portfolioNote")
+          .selectAll()
+          .where("isDeleted", "is not", Evolu.sqliteTrue)
+          .where("deleted", "is not", Evolu.sqliteTrue),
+      ),
+    [evolu],
+  );
 
   const cryptoHoldings = useQuery(cryptoQ);
   const stockHoldings = useQuery(stockQ);
@@ -108,11 +158,28 @@ function SettingsContent() {
   const receivables = useQuery(receivableQ);
   const savingsAccounts = useQuery(savingsQ);
   const snapshots = useQuery(snapshotQ);
+  const cashflowEntries = useQuery(cashflowQ);
+  const allocationTargets = useQuery(allocationQ);
+  const portfolioNotes = useQuery(portfolioNoteQ);
 
   useEffect(() => {
     const url = getRelayUrl();
     setRelayUrlState(url);
     setSavedRelay(url);
+  }, []);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(SNAPSHOT_AUTOMATION_SETTINGS_KEY);
+      if (!stored) return;
+      const parsed = JSON.parse(stored) as Partial<typeof DEFAULT_SNAPSHOT_AUTOMATION_SETTINGS>;
+      setAutomationSettings({
+        ...DEFAULT_SNAPSHOT_AUTOMATION_SETTINGS,
+        ...parsed,
+      });
+    } catch {
+      setAutomationSettings(DEFAULT_SNAPSHOT_AUTOMATION_SETTINGS);
+    }
   }, []);
 
   // Test WebSocket connection to relay
@@ -199,6 +266,46 @@ function SettingsContent() {
         ? { color: "#10b981", label: "Connected" }
         : { color: "#ef4444", label: "Disconnected" };
 
+  const allocationRows = ASSET_CLASSES.map((assetClass) => {
+    const current = allocationTargets.find(
+      (row) => String(row.assetClass) === assetClass,
+    );
+    return {
+      assetClass,
+      id: (current?.id as string | undefined) ?? null,
+      targetPercent:
+        typeof current?.targetPercent === "number"
+          ? (current.targetPercent as number)
+          : DEFAULT_ALLOCATION_TARGETS[assetClass],
+    };
+  });
+
+  const totalTargetPercent = allocationRows.reduce(
+    (sum, row) => sum + row.targetPercent,
+    0,
+  );
+
+  useEffect(() => {
+    setAllocationDrafts((current) => {
+      const next = { ...current };
+      let changed = false;
+      for (const assetClass of ASSET_CLASSES) {
+        const row = allocationTargets.find(
+          (entry) => String(entry.assetClass) === assetClass,
+        );
+        const value =
+          typeof row?.targetPercent === "number"
+            ? (row.targetPercent as number).toString()
+            : DEFAULT_ALLOCATION_TARGETS[assetClass].toString();
+        if (current[assetClass] !== value) {
+          next[assetClass] = value;
+          changed = true;
+        }
+      }
+      return changed ? next : current;
+    });
+  }, [allocationTargets]);
+
   function handleExportBackup() {
     const payload = buildBackupPayload({
       cryptoHolding: cryptoHoldings.map((row) => ({ ...row })),
@@ -207,6 +314,9 @@ function SettingsContent() {
       receivable: receivables.map((row) => ({ ...row })),
       savingsAccount: savingsAccounts.map((row) => ({ ...row })),
       netWorthSnapshot: snapshots.map((row) => ({ ...row })),
+      cashflowEntry: cashflowEntries.map((row) => ({ ...row })),
+      allocationTarget: allocationTargets.map((row) => ({ ...row })),
+      portfolioNote: portfolioNotes.map((row) => ({ ...row })),
     });
 
     const fileName = `wealth-tracker-backup-${new Date().toISOString().slice(0, 10)}.json`;
@@ -260,6 +370,9 @@ function SettingsContent() {
         receivable: receivables,
         savingsAccount: savingsAccounts,
         netWorthSnapshot: snapshots,
+        cashflowEntry: cashflowEntries,
+        allocationTarget: allocationTargets,
+        portfolioNote: portfolioNotes,
       };
 
       for (const table of BACKUP_TABLES) {
@@ -300,7 +413,52 @@ function SettingsContent() {
     properties.length +
     receivables.length +
     savingsAccounts.length +
-    snapshots.length;
+    snapshots.length +
+    cashflowEntries.length +
+    allocationTargets.length +
+    portfolioNotes.length;
+
+  function handleAutomationToggle(checked: boolean) {
+    const next = { dailyOnOpen: checked };
+    setAutomationSettings(next);
+    localStorage.setItem(SNAPSHOT_AUTOMATION_SETTINGS_KEY, JSON.stringify(next));
+  }
+
+  function handleTargetDraftChange(assetClass: string, value: string) {
+    setAllocationDrafts((current) => ({ ...current, [assetClass]: value }));
+  }
+
+  function handleTargetSave(assetClass: string) {
+    const value = allocationDrafts[assetClass] ?? "";
+    const parsed = value === "" ? 0 : Number(value);
+    if (!Number.isFinite(parsed) || parsed < 0) return;
+    const current = allocationTargets.find(
+      (row) => String(row.assetClass) === assetClass,
+    );
+    if (current) {
+      evolu.update(
+        "allocationTarget",
+        {
+          id: current.id as never,
+          assetClass,
+          targetPercent: parsed,
+          notes: current.notes ?? null,
+        } as never,
+      );
+    } else {
+      evolu.insert(
+        "allocationTarget",
+        {
+          assetClass,
+          targetPercent: parsed,
+          notes: null,
+          deleted: Evolu.sqliteFalse,
+        } as never,
+      );
+    }
+    setAllocationStatus("Target allocations updated.");
+    setTimeout(() => setAllocationStatus(null), 2500);
+  }
 
   return (
     <div style={{ maxWidth: "640px" }}>
@@ -567,6 +725,92 @@ function SettingsContent() {
             }}
           >
             {backupStatus}
+          </div>
+        )}
+      </div>
+
+      <div className="card" style={{ marginTop: "1.5rem", marginBottom: "1.5rem" }}>
+        <h2 style={{ margin: "0 0 0.5rem", fontSize: "1rem", fontWeight: 700 }}>
+          📸 Snapshot Automation
+        </h2>
+        <p style={{ color: "var(--muted)", fontSize: "0.8rem", margin: "0 0 1rem" }}>
+          Create one snapshot per calendar day when the app opens on a new day.
+        </p>
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.65rem",
+            fontSize: "0.85rem",
+            color: "var(--foreground)",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={automationSettings.dailyOnOpen}
+            onChange={(e) => handleAutomationToggle(e.target.checked)}
+            style={{ width: "auto" }}
+          />
+          Enable daily snapshot on app open / day change
+        </label>
+      </div>
+
+      <div className="card" style={{ marginBottom: "1.5rem" }}>
+        <h2 style={{ margin: "0 0 0.5rem", fontSize: "1rem", fontWeight: 700 }}>
+          🎯 Target Allocation
+        </h2>
+        <p style={{ color: "var(--muted)", fontSize: "0.8rem", margin: "0 0 1rem" }}>
+          Set your target weights by asset class. Dashboard compares these targets
+          against current portfolio composition.
+        </p>
+
+        <div style={{ display: "grid", gap: "0.75rem" }}>
+          {allocationRows.map((row) => (
+            <div
+              key={row.assetClass}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 120px",
+                gap: "0.75rem",
+                alignItems: "center",
+              }}
+            >
+              <div style={{ fontSize: "0.85rem", fontWeight: 600 }}>{row.assetClass}</div>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                value={allocationDrafts[row.assetClass] ?? row.targetPercent.toString()}
+                onChange={(e) => handleTargetDraftChange(row.assetClass, e.target.value)}
+                onBlur={() => handleTargetSave(row.assetClass)}
+                style={{
+                  background: "var(--card)",
+                  border: "1px solid var(--card-border)",
+                  borderRadius: "8px",
+                  padding: "0.55rem 0.7rem",
+                  color: "var(--foreground)",
+                }}
+              />
+            </div>
+          ))}
+        </div>
+
+        <div
+          style={{
+            marginTop: "1rem",
+            fontSize: "0.78rem",
+            color:
+              Math.abs(totalTargetPercent - 100) < 0.001
+                ? "var(--green)"
+                : "var(--yellow)",
+          }}
+        >
+          Total target weight: {totalTargetPercent.toFixed(1)}%
+        </div>
+        {allocationStatus && (
+          <div style={{ marginTop: "0.6rem", fontSize: "0.78rem", color: "var(--muted)" }}>
+            {allocationStatus}
           </div>
         )}
       </div>
