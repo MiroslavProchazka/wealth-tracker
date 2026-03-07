@@ -21,6 +21,8 @@ test.describe("Stocks (/stocks)", () => {
 
     const tickerInput = page.locator("input[name='ticker'], input[name='symbol']").first();
     if (await tickerInput.isVisible()) await tickerInput.fill("AAPL");
+    const nameInput = page.locator("input[name='name']").first();
+    if (await nameInput.isVisible()) await nameInput.fill("Apple Inc.");
 
     const sharesInput = page.locator("input[name='shares'], input[name='amount']").first();
     if (await sharesInput.isVisible()) await sharesInput.fill("10");
@@ -31,10 +33,12 @@ test.describe("Stocks (/stocks)", () => {
     const currencySelect = page.locator("select[name='currency']");
     if (await currencySelect.isVisible()) await currencySelect.selectOption("USD");
 
-    const submitBtn = page.getByRole("button", { name: /save|uložit|add|submit/i }).last();
+    const submitBtn = page.locator("form").last().getByRole("button", {
+      name: /save|uložit|add|přidat|submit/i,
+    });
     await submitBtn.click();
 
-    await expect(page.getByText("AAPL")).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText("AAPL").first()).toBeVisible({ timeout: 5000 });
   });
 
   test("Stocks odkaz v sidebaru je aktivní", async ({ page }) => {
@@ -58,13 +62,17 @@ test.describe("Stocks (/stocks)", () => {
     await page.getByRole("button", { name: /add|přidat|\+/i }).first().click();
     const tickerInput = page.locator("input[name='ticker'], input[name='symbol']").first();
     if (await tickerInput.isVisible()) await tickerInput.fill("MSFT");
+    const nameInput = page.locator("input[name='name']").first();
+    if (await nameInput.isVisible()) await nameInput.fill("Microsoft");
     const sharesInput = page.locator("input[name='shares'], input[name='amount']").first();
     if (await sharesInput.isVisible()) await sharesInput.fill("5");
-    await page.getByRole("button", { name: /save|uložit|add|submit/i }).last().click();
-    await expect(page.getByText("MSFT")).toBeVisible({ timeout: 5000 });
+    await page.locator("form").last().getByRole("button", {
+      name: /save|uložit|add|přidat|submit/i,
+    }).click();
+    await expect(page.getByText("MSFT").first()).toBeVisible({ timeout: 5000 });
 
     // Edit
-    const editBtn = page.locator("button[title='Upravit'], button:has-text('✏️')").first();
+    const editBtn = page.locator("button[title='Upravit']").first();
     await editBtn.click();
 
     // Modal je otevřený s ticker předvyplněným
@@ -78,17 +86,23 @@ test.describe("Stocks (/stocks)", () => {
     await page.getByRole("button", { name: /add|přidat|\+/i }).first().click();
     const tickerInput = page.locator("input[name='ticker'], input[name='symbol']").first();
     if (await tickerInput.isVisible()) await tickerInput.fill("GOOG");
+    const nameInput = page.locator("input[name='name']").first();
+    if (await nameInput.isVisible()) await nameInput.fill("Alphabet");
     const sharesInput = page.locator("input[name='shares'], input[name='amount']").first();
     if (await sharesInput.isVisible()) await sharesInput.fill("3");
-    await page.getByRole("button", { name: /save|uložit|add|submit/i }).last().click();
-    await expect(page.getByText("GOOG")).toBeVisible({ timeout: 5000 });
+    await page.locator("form").last().getByRole("button", {
+      name: /save|uložit|add|přidat|submit/i,
+    }).click();
+    await expect(page.getByText("GOOG").first()).toBeVisible({ timeout: 5000 });
 
     // Editujeme počet shares
-    await page.locator("button[title='Upravit'], button:has-text('✏️')").first().click();
+    await page.locator("button[title='Upravit']").first().click();
     const shares = page.locator("input[name='shares']");
     await shares.clear();
     await shares.fill("10");
-    await page.getByRole("button", { name: /save|uložit|update|upravit|submit/i }).last().click();
+    await page.locator("form").last().getByRole("button", {
+      name: /save|uložit|update|upravit|submit/i,
+    }).click();
 
     // Nová hodnota shares
     await expect(page.getByText(/10/).first()).toBeVisible({ timeout: 5000 });

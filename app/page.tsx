@@ -118,7 +118,7 @@ export default function Dashboard() {
       .catch(() => {
         /* silently ignore – fall back to 0 */
       });
-  }, [cryptos.length]);
+  }, [cryptos]);
 
   useEffect(() => {
     const tickers = stocks
@@ -133,7 +133,7 @@ export default function Dashboard() {
       .catch(() => {
         /* silently ignore – fall back to 0 */
       });
-  }, [stocks.length]);
+  }, [stocks]);
 
   // ── Computed values ────────────────────────────────────────────────────────
   const cryptoValue = cryptos.reduce((s, c) => {

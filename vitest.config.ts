@@ -13,7 +13,7 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "html"],
       include: ["lib/**", "components/**"],
-      exclude: ["lib/prisma.ts", "lib/evolu.ts"],
+      exclude: ["lib/evolu.ts"],
     },
   },
   resolve: {

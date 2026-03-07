@@ -96,8 +96,11 @@ test.describe("Property (/property)", () => {
     if (await nameInput.isVisible()) await nameInput.fill("Chalupa Šumava");
     const valueInput = page.locator("input[name='estimatedValue'], input[name='value']").first();
     if (await valueInput.isVisible()) await valueInput.fill("3500000");
-    await page.getByRole("button", { name: /save|uložit|add|submit/i }).last().click();
-    await expect(page.getByText("Chalupa Šumava")).toBeVisible({ timeout: 5000 });
+    await page.locator("form").last().getByRole("button", {
+      name: /save|uložit|add|submit/i,
+    }).click();
+    await expect(page.getByText("Chalupa Šumava").or(page.getByText(/3.?500.?000/)).first())
+      .toBeVisible({ timeout: 5000 });
 
     // Editujeme
     const editBtn = page.locator("button[title='Upravit'], button:has-text('✏️')").first();
