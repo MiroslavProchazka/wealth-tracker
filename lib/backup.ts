@@ -9,6 +9,9 @@ export const BACKUP_TABLES = [
   "receivable",
   "savingsAccount",
   "netWorthSnapshot",
+  "cashflowEntry",
+  "allocationTarget",
+  "portfolioNote",
 ] as const;
 
 export type BackupTable = (typeof BACKUP_TABLES)[number];
@@ -85,6 +88,7 @@ function normalizeCryptoHolding(row: UnknownRecord): UnknownRecord | null {
     name,
     amount,
     buyPrice: toNullableNonNegativeNumber(row.buyPrice),
+    tags: toNullableString(row.tags),
     notes: toNullableString(row.notes),
     deleted: Evolu.sqliteFalse,
   };
@@ -104,6 +108,7 @@ function normalizeStockHolding(row: UnknownRecord): UnknownRecord | null {
     buyPrice: toNullableNonNegativeNumber(row.buyPrice),
     exchange: toNullableString(row.exchange),
     sector: toNullableString(row.sector),
+    tags: toNullableString(row.tags),
     notes: toNullableString(row.notes),
     deleted: Evolu.sqliteFalse,
   };
@@ -126,6 +131,7 @@ function normalizeProperty(row: UnknownRecord): UnknownRecord | null {
     interestRate: toNullableNonNegativeNumber(row.interestRate),
     mortgageStart: toDateIso(row.mortgageStart),
     mortgageEnd: toDateIso(row.mortgageEnd),
+    tags: toNullableString(row.tags),
     notes: toNullableString(row.notes),
     deleted: Evolu.sqliteFalse,
   };
@@ -144,6 +150,7 @@ function normalizeReceivable(row: UnknownRecord): UnknownRecord | null {
     currency,
     status,
     dueDate: toDateIso(row.dueDate),
+    tags: toNullableString(row.tags),
     notes: toNullableString(row.notes),
     deleted: Evolu.sqliteFalse,
   };
@@ -161,6 +168,7 @@ function normalizeSavingsAccount(row: UnknownRecord): UnknownRecord | null {
     balance,
     currency,
     interestRate: toNullableNonNegativeNumber(row.interestRate),
+    tags: toNullableString(row.tags),
     notes: toNullableString(row.notes),
     deleted: Evolu.sqliteFalse,
   };
@@ -205,6 +213,60 @@ function normalizeSnapshot(row: UnknownRecord): UnknownRecord | null {
   };
 }
 
+function normalizeCashflowEntry(row: UnknownRecord): UnknownRecord | null {
+  const entryDate = toDateIso(row.entryDate);
+  const type = toTrimmedString(row.type)?.toUpperCase();
+  const category = toTrimmedString(row.category);
+  const amount = toNonNegativeNumber(row.amount);
+  const currency = toTrimmedString(row.currency)?.toUpperCase();
+  if (
+    !entryDate ||
+    !type ||
+    !["CONTRIBUTION", "WITHDRAWAL"].includes(type) ||
+    !category ||
+    amount === null ||
+    !currency
+  ) {
+    return null;
+  }
+  return {
+    entryDate,
+    type,
+    category,
+    amount,
+    currency,
+    tags: toNullableString(row.tags),
+    notes: toNullableString(row.notes),
+    deleted: Evolu.sqliteFalse,
+  };
+}
+
+function normalizeAllocationTarget(row: UnknownRecord): UnknownRecord | null {
+  const assetClass = toTrimmedString(row.assetClass);
+  const targetPercent = toNonNegativeNumber(row.targetPercent);
+  if (!assetClass || targetPercent === null) return null;
+  return {
+    assetClass,
+    targetPercent,
+    notes: toNullableString(row.notes),
+    deleted: Evolu.sqliteFalse,
+  };
+}
+
+function normalizePortfolioNote(row: UnknownRecord): UnknownRecord | null {
+  const noteDate = toDateIso(row.noteDate);
+  const title = toTrimmedString(row.title);
+  const body = toTrimmedString(row.body);
+  if (!noteDate || !title || !body) return null;
+  return {
+    noteDate,
+    title,
+    body,
+    tags: toNullableString(row.tags),
+    deleted: Evolu.sqliteFalse,
+  };
+}
+
 const normalizers: Record<BackupTable, (row: UnknownRecord) => UnknownRecord | null> = {
   cryptoHolding: normalizeCryptoHolding,
   stockHolding: normalizeStockHolding,
@@ -212,6 +274,9 @@ const normalizers: Record<BackupTable, (row: UnknownRecord) => UnknownRecord | n
   receivable: normalizeReceivable,
   savingsAccount: normalizeSavingsAccount,
   netWorthSnapshot: normalizeSnapshot,
+  cashflowEntry: normalizeCashflowEntry,
+  allocationTarget: normalizeAllocationTarget,
+  portfolioNote: normalizePortfolioNote,
 };
 
 export function buildBackupPayload(data: Record<BackupTable, UnknownRecord[]>): BackupPayload {
@@ -226,6 +291,9 @@ export function buildBackupPayload(data: Record<BackupTable, UnknownRecord[]>): 
       receivable: data.receivable.map(stripMetadata),
       savingsAccount: data.savingsAccount.map(stripMetadata),
       netWorthSnapshot: data.netWorthSnapshot.map(stripMetadata),
+      cashflowEntry: data.cashflowEntry.map(stripMetadata),
+      allocationTarget: data.allocationTarget.map(stripMetadata),
+      portfolioNote: data.portfolioNote.map(stripMetadata),
     },
   };
 }

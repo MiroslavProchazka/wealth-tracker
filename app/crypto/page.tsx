@@ -90,7 +90,7 @@ const CURRENCY_KEY: Record<DisplayCurrency, keyof PriceData> = {
 const REFRESH_INTERVAL_MS = 10 * 60 * 1000;
 const MIN_FETCH_INTERVAL_MS = 30 * 1000; // never fetch more often than 30s
 const ALERTS_STORAGE_KEY = "wealthTracker_cryptoAlerts";
-const emptyForm = { symbol: "", name: "", amount: "", buyPrice: "", notes: "" };
+const emptyForm = { symbol: "", name: "", amount: "", buyPrice: "", tags: "", notes: "" };
 const emptyAlert: { symbol: string; direction: "above" | "below"; threshold: string } = { symbol: "", direction: "above", threshold: "" };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -276,6 +276,7 @@ export default function CryptoPage() {
         name: form.name.trim(),
         amount: parseFloat(form.amount),
         buyPrice: form.buyPrice ? parseFloat(form.buyPrice) : null,
+        tags: form.tags.trim() || null,
         notes: form.notes.trim() || null,
       } as never);
       setForm(emptyForm);
@@ -287,6 +288,7 @@ export default function CryptoPage() {
         name: form.name.trim(),
         amount: parseFloat(form.amount),
         buyPrice: form.buyPrice ? parseFloat(form.buyPrice) : null,
+        tags: form.tags.trim() || null,
         notes: form.notes.trim() || null,
         deleted: Evolu.sqliteFalse,
       } as never);
@@ -304,6 +306,7 @@ export default function CryptoPage() {
       name: h.name as string,
       amount: String(h.amount as number),
       buyPrice: h.buyPrice != null ? String(h.buyPrice as number) : "",
+      tags: (h.tags as string) ?? "",
       notes: (h.notes as string) ?? "",
     });
     setEditingId(h.id as string);
@@ -684,6 +687,8 @@ export default function CryptoPage() {
             <FormField label="Průměrná nákupní cena (CZK / ks) — volitelné" name="buyPrice"
               type="number" value={form.buyPrice} onChange={handleFormChange}
               placeholder="2 500 000" step="any" min="0" />
+            <FormField label="Tagy" name="tags" value={form.tags}
+              onChange={handleFormChange} placeholder="long-term, defi, cold-wallet" />
             <FormField label="Poznámky" name="notes" type="textarea" value={form.notes}
               onChange={handleFormChange} placeholder="Nepovinné…" rows={2} />
 

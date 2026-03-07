@@ -8,6 +8,8 @@ import { evoluReactWebDeps } from "@evolu/react-web";
 const RELAY_URL_KEY = "wealthTracker_relayUrl";
 const DEFAULT_RELAY_URL = "wss://free.evoluhq.com";
 export const NET_WORTH_SNAPSHOT_SCHEMA_VERSION = 1;
+export const SNAPSHOT_AUTOMATION_SETTINGS_KEY =
+  "wealthTracker_snapshotAutomation";
 
 export const getRelayUrl = (): string => {
   if (typeof window === "undefined") return DEFAULT_RELAY_URL;
@@ -30,6 +32,7 @@ export const Schema = {
     name: Evolu.NonEmptyTrimmedString100,
     amount: Evolu.NonNegativeNumber,
     buyPrice: Evolu.nullOr(Evolu.NonNegativeNumber), // avg buy price in CZK per coin
+    tags: Evolu.nullOr(Evolu.TrimmedString1000),
     notes: Evolu.nullOr(Evolu.TrimmedString1000),
     deleted: Evolu.nullOr(Evolu.SqliteBoolean),
   },
@@ -42,6 +45,7 @@ export const Schema = {
     buyPrice: Evolu.nullOr(Evolu.NonNegativeNumber), // avg buy price in original currency
     exchange: Evolu.nullOr(Evolu.TrimmedString100),  // e.g. NASDAQ, PSE, XETRA
     sector: Evolu.nullOr(Evolu.TrimmedString100),    // e.g. Technology, Healthcare
+    tags: Evolu.nullOr(Evolu.TrimmedString1000),
     notes: Evolu.nullOr(Evolu.TrimmedString1000),
     deleted: Evolu.nullOr(Evolu.SqliteBoolean),
   },
@@ -58,6 +62,7 @@ export const Schema = {
     interestRate: Evolu.nullOr(Evolu.NonNegativeNumber),
     mortgageStart: Evolu.nullOr(Evolu.DateIso),
     mortgageEnd: Evolu.nullOr(Evolu.DateIso),
+    tags: Evolu.nullOr(Evolu.TrimmedString1000),
     notes: Evolu.nullOr(Evolu.TrimmedString1000),
     deleted: Evolu.nullOr(Evolu.SqliteBoolean),
   },
@@ -69,6 +74,7 @@ export const Schema = {
     currency: Evolu.NonEmptyTrimmedString100,
     status: Evolu.NonEmptyTrimmedString100,
     dueDate: Evolu.nullOr(Evolu.DateIso),
+    tags: Evolu.nullOr(Evolu.TrimmedString1000),
     notes: Evolu.nullOr(Evolu.TrimmedString1000),
     deleted: Evolu.nullOr(Evolu.SqliteBoolean),
   },
@@ -79,6 +85,7 @@ export const Schema = {
     balance: Evolu.NonNegativeNumber,
     currency: Evolu.NonEmptyTrimmedString100,
     interestRate: Evolu.nullOr(Evolu.NonNegativeNumber),
+    tags: Evolu.nullOr(Evolu.TrimmedString1000),
     notes: Evolu.nullOr(Evolu.TrimmedString1000),
     deleted: Evolu.nullOr(Evolu.SqliteBoolean),
   },
@@ -96,6 +103,32 @@ export const Schema = {
     // Version the snapshot payload explicitly so dashboard/history comparisons
     // can reject incompatible historical records after future schema changes.
     schemaVersion: Evolu.nullOr(Evolu.PositiveInt),
+    deleted: Evolu.nullOr(Evolu.SqliteBoolean),
+  },
+  cashflowEntry: {
+    id: Evolu.id("CashflowEntry"),
+    entryDate: Evolu.DateIso,
+    type: Evolu.NonEmptyTrimmedString100,
+    category: Evolu.NonEmptyTrimmedString100,
+    amount: Evolu.NonNegativeNumber,
+    currency: Evolu.NonEmptyTrimmedString100,
+    tags: Evolu.nullOr(Evolu.TrimmedString1000),
+    notes: Evolu.nullOr(Evolu.TrimmedString1000),
+    deleted: Evolu.nullOr(Evolu.SqliteBoolean),
+  },
+  allocationTarget: {
+    id: Evolu.id("AllocationTarget"),
+    assetClass: Evolu.NonEmptyTrimmedString100,
+    targetPercent: Evolu.NonNegativeNumber,
+    notes: Evolu.nullOr(Evolu.TrimmedString1000),
+    deleted: Evolu.nullOr(Evolu.SqliteBoolean),
+  },
+  portfolioNote: {
+    id: Evolu.id("PortfolioNote"),
+    noteDate: Evolu.DateIso,
+    title: Evolu.NonEmptyTrimmedString100,
+    body: Evolu.NonEmptyTrimmedString1000,
+    tags: Evolu.nullOr(Evolu.TrimmedString1000),
     deleted: Evolu.nullOr(Evolu.SqliteBoolean),
   },
 };
