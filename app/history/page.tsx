@@ -11,6 +11,7 @@ import {
   ResponsiveContainer, BarChart, Bar,
 } from "recharts";
 import { formatCurrency } from "@/lib/currencies";
+import MarketDataStatus from "@/components/MarketDataStatus";
 
 export default function HistoryPage() {
   const evolu = useEvolu();
@@ -40,25 +41,73 @@ export default function HistoryPage() {
   const [stockPrices, setStockPrices] = useState<Record<string, { czk: number }>>({});
   const [cryptoPricesLoaded, setCryptoPricesLoaded] = useState(false);
   const [stockPricesLoaded, setStockPricesLoaded] = useState(false);
+  const [cryptoStatus, setCryptoStatus] = useState({
+    loading: false,
+    stale: false,
+    error: null as string | null,
+    fetchedAt: null as string | null,
+  });
+  const [stockStatus, setStockStatus] = useState({
+    loading: false,
+    stale: false,
+    error: null as string | null,
+    fetchedAt: null as string | null,
+  });
   const pricesLoaded = cryptoPricesLoaded && stockPricesLoaded;
 
   useEffect(() => {
     const symbols = cryptos.map((c) => (c.symbol as string).toUpperCase()).filter(Boolean);
-    if (symbols.length === 0) { setCryptoPricesLoaded(true); return; }
+    if (symbols.length === 0) {
+      setCryptoPricesLoaded(true);
+      return;
+    }
     fetch(`/api/crypto/prices?symbols=${encodeURIComponent(symbols.join(","))}`)
-      .then((r) => r.json())
-      .then((d) => { if (d.prices) setCryptoPrices(d.prices); })
-      .catch(() => {})
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error ?? `HTTP ${r.status}`);
+        if (d.prices) setCryptoPrices(d.prices);
+        setCryptoStatus({
+          loading: false,
+          stale: Boolean(d.stale),
+          error: null,
+          fetchedAt: d.fetchedAt ?? null,
+        });
+      })
+      .catch((error: Error) => {
+        setCryptoStatus((current) => ({
+          ...current,
+          loading: false,
+          error: error.message,
+        }));
+      })
       .finally(() => setCryptoPricesLoaded(true));
   }, [cryptos]);
 
   useEffect(() => {
     const tickers = stocks.map((s) => (s.ticker as string).toUpperCase()).filter(Boolean);
-    if (tickers.length === 0) { setStockPricesLoaded(true); return; }
+    if (tickers.length === 0) {
+      setStockPricesLoaded(true);
+      return;
+    }
     fetch(`/api/stocks/prices?tickers=${encodeURIComponent(tickers.join(","))}`)
-      .then((r) => r.json())
-      .then((d) => { if (d.prices) setStockPrices(d.prices); })
-      .catch(() => {})
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error ?? `HTTP ${r.status}`);
+        if (d.prices) setStockPrices(d.prices);
+        setStockStatus({
+          loading: false,
+          stale: Boolean(d.stale),
+          error: null,
+          fetchedAt: d.fetchedAt ?? null,
+        });
+      })
+      .catch((error: Error) => {
+        setStockStatus((current) => ({
+          ...current,
+          loading: false,
+          error: error.message,
+        }));
+      })
       .finally(() => setStockPricesLoaded(true));
   }, [stocks]);
 
@@ -112,7 +161,7 @@ export default function HistoryPage() {
     // Don't auto-create the very first snapshot — let the user do that intentionally.
     if (snapshots.length === 0) return;
     // Need at least one asset to record a meaningful snapshot.
-    const hasAssets = cryptos.length > 0 || stocks.length > 0 || properties.length > 0 || savings.length > 0;
+    const hasAssets = cryptos.length > 0 || stocks.length > 0 || properties.length > 0 || savings.length > 0 || receivables.length > 0;
     if (!hasAssets) return;
 
     const lastSnapshot = snapshots[snapshots.length - 1];
@@ -131,7 +180,7 @@ export default function HistoryPage() {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pricesLoaded, snapshots.length, autoSnapped]);
+  }, [pricesLoaded, snapshots.length, autoSnapped, cryptos.length, stocks.length, properties.length, savings.length, receivables.length]);
 
   // ── Chart data ────────────────────────────────────────────────────────────
   const chartData = snapshots.map((s) => ({
@@ -148,6 +197,33 @@ export default function HistoryPage() {
 
   const firstSnapshot = snapshots[0];
   const totalChange = firstSnapshot ? currentNetWorth - (firstSnapshot.netWorth as number) : 0;
+  const latestSnapshot = snapshots[snapshots.length - 1];
+  const nextAutoSnapshotDate = latestSnapshot
+    ? new Date(new Date(String(latestSnapshot.snapshotDate)).getTime() + 7 * 24 * 60 * 60 * 1000)
+    : null;
+  const bestSnapshot = snapshots.reduce<typeof snapshots[number] | null>((best, snap) => {
+    if (!best) return snap;
+    return (snap.netWorth as number) > (best.netWorth as number) ? snap : best;
+  }, null);
+  const thirtyDayReference =
+    [...snapshots]
+      .reverse()
+      .find((snap) => Date.now() - new Date(String(snap.snapshotDate)).getTime() >= 30 * 24 * 60 * 60 * 1000) ??
+    firstSnapshot;
+  const change30d = thirtyDayReference
+    ? currentNetWorth - (thirtyDayReference.netWorth as number)
+    : null;
+  const averageSnapshotCadenceDays =
+    snapshots.length < 2
+      ? null
+      : snapshots.slice(1).reduce((sum, snap, index) => {
+          const prev = snapshots[index];
+          const diff =
+            new Date(String(snap.snapshotDate)).getTime() -
+            new Date(String(prev.snapshotDate)).getTime();
+          return sum + diff / (1000 * 60 * 60 * 24);
+        }, 0) /
+        (snapshots.length - 1);
 
   return (
     <div>
@@ -165,12 +241,27 @@ export default function HistoryPage() {
         <button className="btn-primary" onClick={takeSnapshot} disabled={snapping || !pricesLoaded}>{snapping ? "Saving…" : !pricesLoaded ? "Loading prices…" : "📸 Take Snapshot"}</button>
       </div>
 
+      <MarketDataStatus
+        sources={[
+          ...(cryptos.length > 0
+            ? [{ label: "Crypto prices", ...cryptoStatus }]
+            : []),
+          ...(stocks.length > 0
+            ? [{ label: "Stock prices", ...stockStatus }]
+            : []),
+        ]}
+      />
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
         {[
           { label: "Current Net Worth", value: formatCurrency(currentNetWorth, "CZK"), color: "var(--accent)" },
           { label: "Total Change", value: (totalChange >= 0 ? "+" : "") + formatCurrency(totalChange, "CZK"), color: totalChange >= 0 ? "var(--green)" : "var(--red)" },
           { label: "Since", value: firstSnapshot ? new Date(String(firstSnapshot.snapshotDate)).toLocaleDateString("cs-CZ") : "—", color: "var(--muted)" },
           { label: "Snapshots", value: String(snapshots.length), color: "var(--muted)" },
+          { label: "30d Change", value: change30d === null ? "—" : `${change30d >= 0 ? "+" : ""}${formatCurrency(change30d, "CZK")}`, color: change30d === null ? "var(--muted)" : change30d >= 0 ? "var(--green)" : "var(--red)" },
+          { label: "Best Snapshot", value: bestSnapshot ? formatCurrency(bestSnapshot.netWorth as number, "CZK") : "—", color: "var(--accent)" },
+          { label: "Avg Cadence", value: averageSnapshotCadenceDays === null ? "—" : `${averageSnapshotCadenceDays.toFixed(1)} d`, color: "var(--muted)" },
+          { label: "Next Auto Snapshot", value: nextAutoSnapshotDate ? nextAutoSnapshotDate.toLocaleDateString("cs-CZ") : "—", color: "var(--muted)" },
         ].map((s) => (
           <div key={s.label} className="card">
             <div style={{ fontSize: "0.65rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>{s.label}</div>

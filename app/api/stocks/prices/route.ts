@@ -8,6 +8,40 @@ const yf = new (YahooFinanceClass as any)({ suppressNotices: ["yahooSurvey"] });
 let rateCache: Record<string, number> = {};
 let rateCachedAt = 0;
 const RATE_TTL = 15 * 60 * 1000;
+const CACHE_TTL_MS = 5 * 60 * 1000;
+
+interface StockPriceResponse {
+  prices: Record<
+    string,
+    {
+      czk: number;
+      usd: number;
+      eur: number;
+      originalPrice: number;
+      originalCurrency: string;
+      change24h: number;
+      changeAbs: number;
+      name: string;
+      open: number | null;
+      high: number | null;
+      low: number | null;
+      volume: number | null;
+      marketCap: number | null;
+      pe: number | null;
+      dividendYield: number | null;
+      week52High: number | null;
+      week52Low: number | null;
+      quoteType: string;
+      exchange: string;
+    }
+  >;
+  rates: Record<string, number>;
+  fetchedAt: string;
+  cached?: boolean;
+  stale?: boolean;
+}
+
+const priceCache = new Map<string, { data: StockPriceResponse; fetchedAt: number }>();
 
 async function getExchangeRates(): Promise<Record<string, number>> {
   if (Date.now() - rateCachedAt < RATE_TTL && Object.keys(rateCache).length > 0) {
@@ -51,6 +85,14 @@ export async function GET(req: Request) {
     return NextResponse.json({ prices: {}, fetchedAt: new Date().toISOString() });
   }
 
+  const cacheKey = [...tickers].sort().join(",");
+  const cached = priceCache.get(cacheKey);
+  const now = Date.now();
+
+  if (cached && now - cached.fetchedAt < CACHE_TTL_MS) {
+    return NextResponse.json({ ...cached.data, cached: true });
+  }
+
   try {
     const [rates, quoteResults] = await Promise.all([
       getExchangeRates(),
@@ -58,17 +100,7 @@ export async function GET(req: Request) {
       Promise.allSettled(tickers.map((ticker) => (yf as any).quote(ticker))),
     ]);
 
-    const prices: Record<string, {
-      czk: number; usd: number; eur: number;
-      originalPrice: number; originalCurrency: string;
-      change24h: number; changeAbs: number;
-      name: string;
-      open: number | null; high: number | null; low: number | null;
-      volume: number | null; marketCap: number | null;
-      pe: number | null; dividendYield: number | null;
-      week52High: number | null; week52Low: number | null;
-      quoteType: string; exchange: string;
-    }> = {};
+    const prices: StockPriceResponse["prices"] = {};
 
     for (let i = 0; i < tickers.length; i++) {
       const result = quoteResults[i];
@@ -106,8 +138,27 @@ export async function GET(req: Request) {
       };
     }
 
-    return NextResponse.json({ prices, rates, fetchedAt: new Date().toISOString() });
+    if (Object.keys(prices).length === 0) {
+      if (cached) {
+        return NextResponse.json({ ...cached.data, cached: true, stale: true });
+      }
+      return NextResponse.json(
+        { error: "No stock prices could be fetched right now." },
+        { status: 503 },
+      );
+    }
+
+    const response: StockPriceResponse = {
+      prices,
+      rates,
+      fetchedAt: new Date().toISOString(),
+    };
+    priceCache.set(cacheKey, { data: response, fetchedAt: now });
+    return NextResponse.json(response);
   } catch (err) {
+    if (cached) {
+      return NextResponse.json({ ...cached.data, cached: true, stale: true });
+    }
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Failed to fetch prices" },
       { status: 500 }
