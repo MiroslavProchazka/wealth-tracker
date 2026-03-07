@@ -481,32 +481,24 @@ export default function Dashboard() {
         >
           Dashboard
         </h1>
-        <p
-          style={{
-            color: "var(--muted)",
-            margin: "0.35rem 0 0",
-            fontSize: "0.875rem",
-          }}
-        >
-          {new Date().toLocaleDateString("cs-CZ", {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })}
-        </p>
-        <p
-          style={{
-            color: "var(--muted)",
-            margin: "0.15rem 0 0",
-            fontSize: "0.75rem",
-          }}
-        >
-          Evolu status: {evoluReady ? "OK" : "offline"}
-        </p>
       </div>
 
       <MarketDataStatus
+        metaItems={[
+          {
+            label: "Today",
+            value: new Date().toLocaleDateString("cs-CZ", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+            }),
+          },
+          {
+            label: "Evolu status",
+            value: evoluReady ? "OK" : "offline",
+            tone: evoluReady ? "ok" : "error",
+          },
+        ]}
         sources={[
           ...(cryptos.length > 0
             ? [{ label: "Crypto prices", ...cryptoStatus }]
