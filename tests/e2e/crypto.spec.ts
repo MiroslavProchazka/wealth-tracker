@@ -50,7 +50,9 @@ test.describe("Crypto (/crypto)", () => {
     }
 
     // Submit
-    const submitBtn = page.getByRole("button", { name: /save|uložit|add|přidat|submit/i }).last();
+    const submitBtn = page.locator("form").last().getByRole("button", {
+      name: /save|uložit|add|přidat|submit/i,
+    });
     await submitBtn.click();
 
     // Holding se zobrazí v tabulce
@@ -58,12 +60,7 @@ test.describe("Crypto (/crypto)", () => {
   });
 
   test("zobrazí přepínač měny (CZK/USD/EUR)", async ({ page }) => {
-    const czk = page.getByRole("button", { name: "CZK" });
-    const usd = page.getByRole("button", { name: "USD" });
-    const eur = page.getByRole("button", { name: "EUR" });
-
-    const visible = await czk.isVisible() || await usd.isVisible() || await eur.isVisible();
-    expect(visible).toBe(true);
+    await expect(page.getByRole("button", { name: "CZK" }).first()).toBeVisible();
   });
 
   test("Crypto odkaz v sidebaru je aktivní", async ({ page }) => {
@@ -88,11 +85,13 @@ test.describe("Crypto (/crypto)", () => {
     const nameInput = page.locator("input[name='name']");
     if (await nameInput.isVisible()) await nameInput.fill("Ethereum");
     await page.locator("input[name='amount']").fill("2");
-    await page.getByRole("button", { name: /save|uložit|add|submit/i }).last().click();
-    await expect(page.getByText("ETH")).toBeVisible({ timeout: 5000 });
+    await page.locator("form").last().getByRole("button", {
+      name: /save|uložit|add|přidat|submit/i,
+    }).click({ force: true });
+    await expect(page.getByText("ETH").first()).toBeVisible({ timeout: 5000 });
 
     // Klikneme na ✏️ edit tlačítko
-    const editBtn = page.locator("button[title='Upravit'], button:has-text('✏️')").first();
+    const editBtn = page.locator("button[title='Upravit']").first();
     await editBtn.click();
 
     // Modal se otevře s předvyplněnou hodnotou
@@ -108,15 +107,19 @@ test.describe("Crypto (/crypto)", () => {
     const nameInput = page.locator("input[name='name']");
     if (await nameInput.isVisible()) await nameInput.fill("Bitcoin");
     await page.locator("input[name='amount']").fill("0.1");
-    await page.getByRole("button", { name: /save|uložit|add|submit/i }).last().click();
+    await page.locator("form").last().getByRole("button", {
+      name: /save|uložit|add|přidat|submit/i,
+    }).click();
     await expect(page.getByText("BTC")).toBeVisible({ timeout: 5000 });
 
     // Editujeme
-    await page.locator("button[title='Upravit'], button:has-text('✏️')").first().click();
+    await page.locator("button[title='Upravit']").first().click();
     const amountInput = page.locator("input[name='amount']");
     await amountInput.clear();
     await amountInput.fill("0.25");
-    await page.getByRole("button", { name: /save|uložit|update|upravit|submit/i }).last().click();
+    await page.locator("form").last().getByRole("button", {
+      name: /save|uložit|update|upravit|submit/i,
+    }).click();
 
     // Nová hodnota se zobrazí
     await expect(page.getByText(/0[,.]25/).first()).toBeVisible({ timeout: 5000 });

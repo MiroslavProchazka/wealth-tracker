@@ -20,6 +20,8 @@ test.describe("Savings (/savings)", () => {
 
     const nameInput = page.locator("input[name='name']").first();
     if (await nameInput.isVisible()) await nameInput.fill("KB Spořicí účet");
+    const bankInput = page.locator("input[name='bank']").first();
+    if (await bankInput.isVisible()) await bankInput.fill("Komerční banka");
 
     const balanceInput = page.locator("input[name='balance']").first();
     if (await balanceInput.isVisible()) await balanceInput.fill("200000");
@@ -30,11 +32,14 @@ test.describe("Savings (/savings)", () => {
     const currencySelect = page.locator("select[name='currency']");
     if (await currencySelect.isVisible()) await currencySelect.selectOption("CZK");
 
-    const submitBtn = page.getByRole("button", { name: /save|uložit|add|submit/i }).last();
+    const submitBtn = page.locator("form").last().getByRole("button", {
+      name: /save|uložit|add|submit/i,
+    });
     await submitBtn.click();
 
-    await expect(page.getByText("KB Spořicí").or(page.getByText("200")).first())
-      .toBeVisible({ timeout: 5000 });
+    await expect(
+      page.getByText("KB Spořicí účet").or(page.getByText(/200.?000/)).first(),
+    ).toBeVisible({ timeout: 5000 });
   });
 
   test("zobrazí roční úrok u přidaného účtu", async ({ page }) => {
@@ -42,6 +47,8 @@ test.describe("Savings (/savings)", () => {
 
     const nameInput = page.locator("input[name='name']").first();
     if (await nameInput.isVisible()) await nameInput.fill("Test úrok");
+    const bankInput = page.locator("input[name='bank']").first();
+    if (await bankInput.isVisible()) await bankInput.fill("Test banka");
 
     const balanceInput = page.locator("input[name='balance']").first();
     if (await balanceInput.isVisible()) await balanceInput.fill("100000");
@@ -49,7 +56,9 @@ test.describe("Savings (/savings)", () => {
     const rateInput = page.locator("input[name='interestRate']").first();
     if (await rateInput.isVisible()) await rateInput.fill("5");
 
-    const submitBtn = page.getByRole("button", { name: /save|uložit|add|submit/i }).last();
+    const submitBtn = page.locator("form").last().getByRole("button", {
+      name: /save|uložit|add|submit/i,
+    });
     await submitBtn.click();
 
     // Roční úrok 5% z 100 000 = 5 000 Kč
@@ -74,15 +83,19 @@ test.describe("Savings (/savings)", () => {
     await page.getByRole("button", { name: /add|přidat|\+/i }).first().click();
     const nameInput = page.locator("input[name='name']").first();
     if (await nameInput.isVisible()) await nameInput.fill("Raiffeisen Spoření");
+    const bankInput = page.locator("input[name='bank']").first();
+    if (await bankInput.isVisible()) await bankInput.fill("Raiffeisenbank");
     const balanceInput = page.locator("input[name='balance']").first();
     if (await balanceInput.isVisible()) await balanceInput.fill("150000");
     const rateInput = page.locator("input[name='interestRate']").first();
     if (await rateInput.isVisible()) await rateInput.fill("4.0");
-    await page.getByRole("button", { name: /save|uložit|add|submit/i }).last().click();
+    await page.locator("form").last().getByRole("button", {
+      name: /save|uložit|add|submit/i,
+    }).click();
     await expect(page.getByText("Raiffeisen Spoření")).toBeVisible({ timeout: 5000 });
 
     // Editujeme
-    const editBtn = page.locator("button[title='Upravit'], button:has-text('✏️')").first();
+    const editBtn = page.locator("button:has-text('✏️')").first();
     await editBtn.click();
 
     // Modal je otevřen — název je předvyplněn
@@ -100,17 +113,21 @@ test.describe("Savings (/savings)", () => {
     if (await bankInput.isVisible()) await bankInput.fill("ČSOB");
     const balanceInput = page.locator("input[name='balance']").first();
     if (await balanceInput.isVisible()) await balanceInput.fill("80000");
-    await page.getByRole("button", { name: /save|uložit|add|submit/i }).last().click();
+    await page.locator("form").last().getByRole("button", {
+      name: /save|uložit|add|submit/i,
+    }).click();
     await expect(page.getByText("ČSOB Spořicí")).toBeVisible({ timeout: 5000 });
 
     // Editujeme zůstatek
-    await page.locator("button[title='Upravit'], button:has-text('✏️')").first().click();
+    await page.locator("button:has-text('✏️')").first().click();
     const balField = page.locator("input[name='balance']");
     if (await balField.isVisible()) {
       await balField.clear();
       await balField.fill("95000");
     }
-    await page.getByRole("button", { name: /save|uložit|update|upravit|submit/i }).last().click();
+    await page.locator("form").last().getByRole("button", {
+      name: /save|uložit|update|upravit|submit/i,
+    }).click();
 
     // Účet stále viditelný po uložení
     await expect(page.getByText("ČSOB Spořicí")).toBeVisible({ timeout: 5000 });

@@ -1,8 +1,10 @@
+import path from "path";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // Run yahoo-finance2 only on the server (Node.js), skip webpack bundling
   serverExternalPackages: ["yahoo-finance2"],
+  outputFileTracingRoot: path.resolve(process.cwd()),
   transpilePackages: [
     "@evolu/common",
     "@evolu/react",

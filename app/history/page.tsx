@@ -47,7 +47,7 @@ export default function HistoryPage() {
       .then((d) => { if (d.prices) setCryptoPrices(d.prices); })
       .catch(() => {})
       .finally(() => setCryptoPricesLoaded(true));
-  }, [cryptos.length]);
+  }, [cryptos]);
 
   useEffect(() => {
     const tickers = stocks.map((s) => (s.ticker as string).toUpperCase()).filter(Boolean);
@@ -57,7 +57,7 @@ export default function HistoryPage() {
       .then((d) => { if (d.prices) setStockPrices(d.prices); })
       .catch(() => {})
       .finally(() => setStockPricesLoaded(true));
-  }, [stocks.length]);
+  }, [stocks]);
 
   // ── Computed values using live prices (same as dashboard) ─────────────────
   const cryptoValue = cryptos.reduce((s, c) => {

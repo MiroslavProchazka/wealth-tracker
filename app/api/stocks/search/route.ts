@@ -12,9 +12,18 @@ export async function GET(req: Request) {
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const results = await (yf as any).search(q, {
-      newsCount: 0, quotesCount: 8, enableFuzzyQuery: true,
-    });
+    const results = await (yf as any).search(
+      q,
+      {
+        newsCount: 0,
+        quotesCount: 8,
+        enableFuzzyQuery: true,
+      },
+      {
+        // Yahoo search responses are not stable enough for strict validation.
+        validateResult: false,
+      },
+    );
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const quotes = ((results as any).quotes ?? [])
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

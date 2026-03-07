@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/playwright-report
+/test-results
 
 # next.js
 /.next/
@@ -46,5 +48,6 @@ next-env.d.ts
 /app/generated/prisma
 
 # SQLite database (contains personal financial data — never commit)
+/dev.db
 /prisma/*.db
 /prisma/*.db-journal

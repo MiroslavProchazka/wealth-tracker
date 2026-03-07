@@ -34,9 +34,5 @@ export default defineConfig({
     timeout: 60_000,
     stdout: "pipe",
     stderr: "pipe",
-    env: {
-      // Test DB — pro Prisma snapshot endpoint
-      DATABASE_URL: "file:./prisma/test.db",
-    },
   },
 });

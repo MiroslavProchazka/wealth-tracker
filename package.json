@@ -7,7 +7,6 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "db:setup": "npx prisma generate && node -e \"const D=require('better-sqlite3'),fs=require('fs'),p=require('path');const db=new D(p.join(process.cwd(),'prisma/dev.db'));fs.readFileSync('prisma/migrations/20260226214346_init/migration.sql','utf8').split(';').map(s=>s.trim()).filter(Boolean).forEach(s=>db.exec(s));db.close();console.log('DB ready');\"",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -16,15 +15,12 @@
     "test:e2e:headed": "playwright test --headed",
     "test:build": "tsc --noEmit && eslint && next build --webpack",
     "typecheck": "tsc --noEmit",
-    "release": "bash scripts/release.sh",
-    "postinstall": "prisma generate"
+    "release": "bash scripts/release.sh"
   },
   "dependencies": {
     "@evolu/common": "^7.4.1",
     "@evolu/react": "^10.4.0",
     "@evolu/react-web": "^2.4.0",
-    "@prisma/adapter-better-sqlite3": "^7.4.1",
-    "@prisma/client": "^7.4.1",
     "@types/better-sqlite3": "^7.6.13",
     "better-sqlite3": "^12.6.2",
     "bip39": "^3.1.0",
@@ -32,7 +28,6 @@
     "date-fns": "^4.1.0",
     "lucide-react": "^0.575.0",
     "next": "16.1.6",
-    "prisma": "^7.4.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "recharts": "^3.7.0",

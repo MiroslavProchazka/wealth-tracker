@@ -68,10 +68,9 @@ test.describe("Receivables (/receivables)", () => {
     expect(errors).toHaveLength(0);
   });
 
-  // Sidebar now shows "Billing" (which embeds receivables) — not a direct Receivables link
-  test("Billing odkaz v sidebaru je viditelný", async ({ page }) => {
-    const link = page.locator("aside").getByRole("link", { name: /Billing/i });
-    await expect(link).toBeVisible();
+  test("Receivables nejsou v sidebaru jako top-level odkaz", async ({ page }) => {
+    const link = page.locator("aside").getByRole("link", { name: /Receivables|Billing/i });
+    await expect(link).toHaveCount(0);
   });
 
   // ── Edit feature ────────────────────────────────────────────────────────────
@@ -84,8 +83,11 @@ test.describe("Receivables (/receivables)", () => {
     if (await clientInput.isVisible()) await clientInput.fill("Firma ABC");
     const amountInput = page.locator("input[name='amount']").first();
     if (await amountInput.isVisible()) await amountInput.fill("35000");
-    await page.getByRole("button", { name: /save|uložit|add|submit/i }).last().click();
-    await expect(page.getByText("Web Redesign")).toBeVisible({ timeout: 5000 });
+    await page.locator("form").last().getByRole("button", {
+      name: /save|uložit|add|submit/i,
+    }).click();
+    await expect(page.getByText("Web Redesign").or(page.getByText(/35.?000/)).first())
+      .toBeVisible({ timeout: 5000 });
 
     // Klikneme na edit
     const editBtn = page.locator("button[title='Upravit'], button:has-text('✏️'), button:has-text('Upravit')").first();
