@@ -2,7 +2,10 @@
 import { useEffect, useMemo, useState } from "react";
 import * as Evolu from "@evolu/common";
 import { useQuery } from "@evolu/react";
-import { useEvolu } from "@/lib/evolu";
+import {
+  NET_WORTH_SNAPSHOT_SCHEMA_VERSION,
+  useEvolu,
+} from "@/lib/evolu";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, BarChart, Bar,
@@ -95,7 +98,7 @@ export default function HistoryPage() {
       propertyValue,
       savingsValue,
       receivablesValue,
-      schemaVersion: 1 as never,
+      schemaVersion: NET_WORTH_SNAPSHOT_SCHEMA_VERSION as never,
       deleted: Evolu.sqliteFalse,
     } as never);
     setSnapping(false);

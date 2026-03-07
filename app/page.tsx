@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import * as Evolu from "@evolu/common";
 import { useQuery } from "@evolu/react";
-import { useEvolu } from "@/lib/evolu";
+import { NET_WORTH_SNAPSHOT_SCHEMA_VERSION, useEvolu } from "@/lib/evolu";
 import { formatCurrency } from "@/lib/currencies";
 import StatCard from "@/components/StatCard";
 import Link from "next/link";
@@ -167,8 +167,10 @@ export default function Dashboard() {
   const comparableSnapshots =
     currentSnapshot &&
     prevSnapshot &&
-    (currentSnapshot.schemaVersion as number | null) === 1 &&
-    (prevSnapshot.schemaVersion as number | null) === 1;
+    (currentSnapshot.schemaVersion as number | null) ===
+      NET_WORTH_SNAPSHOT_SCHEMA_VERSION &&
+    (prevSnapshot.schemaVersion as number | null) ===
+      NET_WORTH_SNAPSHOT_SCHEMA_VERSION;
   const change = comparableSnapshots
     ? netWorth - (prevSnapshot.netWorth as number)
     : 0;
