@@ -29,6 +29,7 @@ import {
   Home,
   NotebookPen,
 } from "lucide-react";
+import { formatCompactMarketStatus } from "@/lib/marketStatus";
 
 export default function Dashboard() {
   const evolu = useEvolu();
@@ -258,7 +259,7 @@ export default function Dashboard() {
           day: "numeric",
           month: "long",
         }),
-        tone: "neutral" as const,
+        tone: "ok" as const,
       },
       {
         label: t("dashboard.evoluStatus"),
@@ -269,23 +270,7 @@ export default function Dashboard() {
         ? [
             {
               label: t("dashboard.cryptoPrices"),
-              value: cryptoStatus.loading
-                ? t("marketStatus.refreshing")
-                : cryptoStatus.error
-                  ? t("marketStatus.unavailable", {
-                      value: cryptoStatus.fetchedAt
-                        ? new Date(cryptoStatus.fetchedAt).toLocaleString(localeTag)
-                        : t("marketStatus.never"),
-                    })
-                  : cryptoStatus.stale
-                    ? t("marketStatus.cached", {
-                        value: cryptoStatus.fetchedAt
-                          ? new Date(cryptoStatus.fetchedAt).toLocaleString(localeTag)
-                          : t("marketStatus.never"),
-                      })
-                    : cryptoStatus.fetchedAt
-                      ? t("marketStatus.justNow")
-                      : t("marketStatus.never"),
+              value: formatCompactMarketStatus(cryptoStatus, localeTag, t),
               tone: cryptoStatus.error
                 ? ("error" as const)
                 : cryptoStatus.stale
@@ -300,23 +285,7 @@ export default function Dashboard() {
         ? [
             {
               label: t("dashboard.stockPrices"),
-              value: stockStatus.loading
-                ? t("marketStatus.refreshing")
-                : stockStatus.error
-                  ? t("marketStatus.unavailable", {
-                      value: stockStatus.fetchedAt
-                        ? new Date(stockStatus.fetchedAt).toLocaleString(localeTag)
-                        : t("marketStatus.never"),
-                    })
-                  : stockStatus.stale
-                    ? t("marketStatus.cached", {
-                        value: stockStatus.fetchedAt
-                          ? new Date(stockStatus.fetchedAt).toLocaleString(localeTag)
-                          : t("marketStatus.never"),
-                      })
-                    : stockStatus.fetchedAt
-                      ? t("marketStatus.justNow")
-                      : t("marketStatus.never"),
+              value: formatCompactMarketStatus(stockStatus, localeTag, t),
               tone: stockStatus.error
                 ? ("error" as const)
                 : stockStatus.stale
