@@ -41,7 +41,10 @@
     "category": "Category",
     "amount": "Amount",
     "currency": "Currency",
-    "actions": "Actions"
+    "actions": "Actions",
+    "editShort": "Edit",
+    "saveNote": "Save Note",
+    "saveEntry": "Save Entry"
   },
   "sidebar": {
     "dashboard": "Dashboard",
@@ -102,7 +105,13 @@
     "addPortfolioNote": "Add Portfolio Note",
     "title": "Title",
     "body": "Body",
-    "noteSaveError": "Unable to save note. Please check the fields and try again."
+    "noteSaveError": "Unable to save note. Please check the fields and try again.",
+    "assetClass_property": "Property",
+    "assetClass_savings": "Savings",
+    "assetClass_receivables": "Receivables",
+    "assetClass_stocks": "Stocks",
+    "assetClass_crypto": "Crypto",
+    "noteTagsPlaceholder": "rebalance, europe, watchlist"
   },
   "crypto": {
     "title": "Crypto Holdings",
@@ -272,7 +281,15 @@
     "withdrawal": "Withdrawal",
     "saveEntry": "Save Entry",
     "saveChanges": "Save Changes",
-    "cashflowSaveError": "Unable to save cashflow entry. Please check the fields and try again."
+    "cashflowSaveError": "Unable to save cashflow entry. Please check the fields and try again.",
+    "cryptoSeries": "Crypto",
+    "stocksSeries": "Stocks",
+    "propertySeries": "Property",
+    "savingsSeries": "Savings",
+    "receivablesSeries": "Receivables",
+    "assetsSeries": "Assets",
+    "liabilitiesSeries": "Liabilities",
+    "cashflowTagsPlaceholder": "salary, rebalance, transfer"
   },
   "settings": {
     "title": "Account",
@@ -317,6 +334,10 @@
     "targetAllocation": "Target Allocation",
     "targetAllocationDescription": "Set your target weights by asset class. Dashboard compares these targets against current portfolio composition.",
     "totalTargetWeight": "Total target weight: {value}%",
-    "allocationUpdated": "Target allocations updated."
+    "allocationUpdated": "Target allocations updated.",
+    "seedPlaceholder": "word1 word2 word3 …"
+  },
+  "loading": {
+    "app": "Loading…"
   }
 }

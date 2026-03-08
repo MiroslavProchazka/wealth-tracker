@@ -14,9 +14,11 @@ import { formatCurrency } from "@/lib/currencies";
 import MarketDataStatus from "@/components/MarketDataStatus";
 import Modal from "@/components/Modal";
 import FormField from "@/components/FormField";
+import { useI18n } from "@/components/i18n/I18nProvider";
 
 export default function HistoryPage() {
   const evolu = useEvolu();
+  const { localeTag, t } = useI18n();
   const [snapping, setSnapping] = useState(false);
   const [view, setView] = useState<"networth" | "breakdown" | "asset-trend">("networth");
   const [autoSnapped, setAutoSnapped] = useState(false);
@@ -27,7 +29,7 @@ export default function HistoryPage() {
   const [cashflowForm, setCashflowForm] = useState({
     entryDate: new Date().toISOString().split("T")[0],
     type: "CONTRIBUTION",
-    category: "Portfolio Contribution",
+    category: t("history.contribution"),
     amount: "",
     currency: "CZK",
     tags: "",
@@ -191,7 +193,7 @@ export default function HistoryPage() {
       if (!alreadyToday) {
         setAutoSnapped(true);
         takeSnapshot();
-        setAutoSnapshotMsg(`Weekly snapshot taken automatically (last was ${Math.floor(daysSince)} days ago)`);
+        setAutoSnapshotMsg(t("history.autoSnapshot", { days: Math.floor(daysSince) }));
         setTimeout(() => setAutoSnapshotMsg(null), 6000);
       }
     }
@@ -200,15 +202,15 @@ export default function HistoryPage() {
 
   // ── Chart data ────────────────────────────────────────────────────────────
   const chartData = snapshots.map((s) => ({
-    date: new Date(String(s.snapshotDate)).toLocaleDateString("cs-CZ", { day: "2-digit", month: "short", year: "2-digit" }),
-    "Net Worth": Math.round(s.netWorth as number),
-    "Assets": Math.round(s.totalAssets as number),
-    "Liabilities": Math.round(s.totalLiabilities as number),
-    Crypto: Math.round(s.cryptoValue as number),
-    Stocks: Math.round(s.stocksValue as number),
-    Property: Math.round(s.propertyValue as number),
-    Savings: Math.round(s.savingsValue as number),
-    Receivables: Math.round(s.receivablesValue as number),
+    date: new Date(String(s.snapshotDate)).toLocaleDateString(localeTag, { day: "2-digit", month: "short", year: "2-digit" }),
+    [t("history.currentNetWorth")]: Math.round(s.netWorth as number),
+    [t("history.assetsSeries")]: Math.round(s.totalAssets as number),
+    [t("history.liabilitiesSeries")]: Math.round(s.totalLiabilities as number),
+    [t("history.cryptoSeries")]: Math.round(s.cryptoValue as number),
+    [t("history.stocksSeries")]: Math.round(s.stocksValue as number),
+    [t("history.propertySeries")]: Math.round(s.propertyValue as number),
+    [t("history.savingsSeries")]: Math.round(s.savingsValue as number),
+    [t("history.receivablesSeries")]: Math.round(s.receivablesValue as number),
   }));
 
   const firstSnapshot = snapshots[0];
@@ -263,7 +265,7 @@ export default function HistoryPage() {
     setCashflowForm({
       entryDate: new Date().toISOString().split("T")[0],
       type: "CONTRIBUTION",
-      category: "Portfolio Contribution",
+      category: t("history.contribution"),
       amount: "",
       currency: "CZK",
       tags: "",
@@ -293,7 +295,7 @@ export default function HistoryPage() {
         deleted: Evolu.sqliteFalse,
       } as never);
       if (!result.ok) {
-        setCashflowError("Unable to save cashflow entry. Please check the fields and try again.");
+        setCashflowError(t("history.cashflowSaveError"));
         return;
       }
     }
@@ -331,9 +333,9 @@ export default function HistoryPage() {
   function handleDeleteSnapshot(id: string, snapshotDate: string) {
     if (typeof window !== "undefined") {
       const confirmed = window.confirm(
-        `Delete snapshot from ${new Date(snapshotDate).toLocaleDateString("cs-CZ", {
-          dateStyle: "medium",
-        })}?`,
+        t("history.deleteSnapshotConfirm", {
+          date: new Date(snapshotDate).toLocaleDateString(localeTag, { dateStyle: "medium" }),
+        }),
       );
       if (!confirmed) return;
     }
@@ -354,39 +356,39 @@ export default function HistoryPage() {
 
       <div className="page-header-row" style={{ marginBottom: "2rem" }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 700 }}>History & Charts</h1>
-          <p style={{ color: "var(--muted)", margin: "0.35rem 0 0", fontSize: "0.875rem" }}>Net worth over time · {snapshots.length} snapshot{snapshots.length !== 1 ? "s" : ""} · auto-snapshot weekly</p>
+          <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 700 }}>{t("history.title")}</h1>
+          <p style={{ color: "var(--muted)", margin: "0.35rem 0 0", fontSize: "0.875rem" }}>{t("history.subtitle", { count: snapshots.length })}</p>
         </div>
         <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
           <button className="btn-ghost" onClick={() => setShowCashflowModal(true)}>
-            + Cashflow
+            + {t("history.cashflow")}
           </button>
-          <button className="btn-primary" onClick={takeSnapshot} disabled={snapping || !pricesLoaded}>{snapping ? "Saving…" : !pricesLoaded ? "Loading prices…" : "📸 Take Snapshot"}</button>
+          <button className="btn-primary" onClick={takeSnapshot} disabled={snapping || !pricesLoaded}>{snapping ? t("common.saving") : !pricesLoaded ? t("history.loadingPrices") : `📸 ${t("history.takeSnapshot")}`}</button>
         </div>
       </div>
 
       <MarketDataStatus
         sources={[
           ...(cryptos.length > 0
-            ? [{ label: "Crypto prices", ...cryptoStatus }]
+            ? [{ label: t("dashboard.cryptoPrices"), ...cryptoStatus }]
             : []),
           ...(stocks.length > 0
-            ? [{ label: "Stock prices", ...stockStatus }]
+            ? [{ label: t("dashboard.stockPrices"), ...stockStatus }]
             : []),
         ]}
       />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
         {[
-          { label: "Current Net Worth", value: formatCurrency(currentNetWorth, "CZK"), color: "var(--accent)" },
-          { label: "Total Change", value: (totalChange >= 0 ? "+" : "") + formatCurrency(totalChange, "CZK"), color: totalChange >= 0 ? "var(--green)" : "var(--red)" },
-          { label: "Since", value: firstSnapshot ? new Date(String(firstSnapshot.snapshotDate)).toLocaleDateString("cs-CZ") : "—", color: "var(--muted)" },
-          { label: "Snapshots", value: String(snapshots.length), color: "var(--muted)" },
-          { label: "30d Change", value: change30d === null ? "—" : `${change30d >= 0 ? "+" : ""}${formatCurrency(change30d, "CZK")}`, color: change30d === null ? "var(--muted)" : change30d >= 0 ? "var(--green)" : "var(--red)" },
-          { label: "Best Snapshot", value: bestSnapshot ? formatCurrency(bestSnapshot.netWorth as number, "CZK") : "—", color: "var(--accent)" },
-          { label: "Avg Cadence", value: averageSnapshotCadenceDays === null ? "—" : `${averageSnapshotCadenceDays.toFixed(1)} d`, color: "var(--muted)" },
-          { label: "Next Auto Snapshot", value: nextAutoSnapshotDate ? nextAutoSnapshotDate.toLocaleDateString("cs-CZ") : "—", color: "var(--muted)" },
-          { label: "Net Cashflow", value: `${signedCashflow >= 0 ? "+" : ""}${formatCurrency(signedCashflow, "CZK")}`, color: signedCashflow >= 0 ? "var(--green)" : "var(--red)" },
+          { label: t("history.currentNetWorth"), value: formatCurrency(currentNetWorth, "CZK"), color: "var(--accent)" },
+          { label: t("history.totalChange"), value: (totalChange >= 0 ? "+" : "") + formatCurrency(totalChange, "CZK"), color: totalChange >= 0 ? "var(--green)" : "var(--red)" },
+          { label: t("history.since"), value: firstSnapshot ? new Date(String(firstSnapshot.snapshotDate)).toLocaleDateString(localeTag) : "—", color: "var(--muted)" },
+          { label: t("history.snapshots"), value: String(snapshots.length), color: "var(--muted)" },
+          { label: t("history.change30d"), value: change30d === null ? "—" : `${change30d >= 0 ? "+" : ""}${formatCurrency(change30d, "CZK")}`, color: change30d === null ? "var(--muted)" : change30d >= 0 ? "var(--green)" : "var(--red)" },
+          { label: t("history.bestSnapshot"), value: bestSnapshot ? formatCurrency(bestSnapshot.netWorth as number, "CZK") : "—", color: "var(--accent)" },
+          { label: t("history.avgCadence"), value: averageSnapshotCadenceDays === null ? "—" : `${averageSnapshotCadenceDays.toFixed(1)} d`, color: "var(--muted)" },
+          { label: t("history.nextAutoSnapshot"), value: nextAutoSnapshotDate ? nextAutoSnapshotDate.toLocaleDateString(localeTag) : "—", color: "var(--muted)" },
+          { label: t("history.netCashflow"), value: `${signedCashflow >= 0 ? "+" : ""}${formatCurrency(signedCashflow, "CZK")}`, color: signedCashflow >= 0 ? "var(--green)" : "var(--red)" },
         ].map((s) => (
           <div key={s.label} className="card">
             <div style={{ fontSize: "0.65rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>{s.label}</div>
@@ -398,7 +400,7 @@ export default function HistoryPage() {
       <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.25rem" }}>
         {(["networth", "breakdown", "asset-trend"] as const).map((v) => (
           <button key={v} onClick={() => setView(v)} style={{ padding: "0.4rem 1rem", borderRadius: "6px", border: "1px solid var(--card-border)", background: view === v ? "var(--accent)" : "transparent", color: view === v ? "white" : "var(--muted)", cursor: "pointer", fontSize: "0.8rem", fontWeight: 500 }}>
-            {v === "networth" ? "Net Worth" : v === "breakdown" ? "Asset Breakdown" : "Asset Trends"}
+            {v === "networth" ? t("history.viewNetWorth") : v === "breakdown" ? t("history.viewBreakdown") : t("history.viewAssetTrends")}
           </button>
         ))}
       </div>
@@ -407,8 +409,8 @@ export default function HistoryPage() {
         {snapshots.length < 2 ? (
           <div style={{ textAlign: "center", padding: "3rem", color: "var(--muted)" }}>
             <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>📊</div>
-            <p>Take at least 2 snapshots to see charts.</p>
-            <p style={{ fontSize: "0.8rem" }}>Click &quot;Take Snapshot&quot; to record today&apos;s values.</p>
+            <p>{t("history.takeAtLeastTwo")}</p>
+            <p style={{ fontSize: "0.8rem" }}>{t("history.takeSnapshotHint")}</p>
           </div>
         ) : view === "networth" ? (
           <ResponsiveContainer width="100%" height={360}>
@@ -422,8 +424,8 @@ export default function HistoryPage() {
               <YAxis tick={{ fill: "#64748b", fontSize: 11 }} tickFormatter={(v) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
               <Tooltip contentStyle={{ background: "#1a1f2e", border: "1px solid #2d3748", borderRadius: "8px" }} labelStyle={{ color: "#e2e8f0", fontWeight: 600 }} formatter={(value: number | undefined, name: string | undefined) => [formatCurrency(value ?? 0, "CZK"), name ?? ""]} />
               <Legend wrapperStyle={{ color: "#64748b", fontSize: "0.8rem" }} />
-              <Area type="monotone" dataKey="Assets" stroke="#10b981" fill="url(#assetsGrad)" strokeWidth={2} />
-              <Area type="monotone" dataKey="Net Worth" stroke="#3b82f6" fill="url(#netWorthGrad)" strokeWidth={2.5} />
+              <Area type="monotone" dataKey={t("history.assetsSeries")} stroke="#10b981" fill="url(#assetsGrad)" strokeWidth={2} />
+              <Area type="monotone" dataKey={t("history.currentNetWorth")} stroke="#3b82f6" fill="url(#netWorthGrad)" strokeWidth={2.5} />
             </AreaChart>
           </ResponsiveContainer>
         ) : view === "breakdown" ? (
@@ -434,11 +436,11 @@ export default function HistoryPage() {
               <YAxis tick={{ fill: "#64748b", fontSize: 11 }} tickFormatter={(v) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
               <Tooltip contentStyle={{ background: "#1a1f2e", border: "1px solid #2d3748", borderRadius: "8px" }} formatter={(value: number | undefined, name: string | undefined) => [formatCurrency(value ?? 0, "CZK"), name ?? ""]} />
               <Legend wrapperStyle={{ color: "#64748b", fontSize: "0.8rem" }} />
-              <Bar dataKey="Property" stackId="a" fill="#8b5cf6" radius={[0,0,0,0]} />
-              <Bar dataKey="Savings" stackId="a" fill="#10b981" />
-              <Bar dataKey="Stocks" stackId="a" fill="#f59e0b" />
-              <Bar dataKey="Crypto" stackId="a" fill="#f97316" />
-              <Bar dataKey="Receivables" stackId="a" fill="#06b6d4" radius={[4,4,0,0]} />
+              <Bar dataKey={t("history.propertySeries")} stackId="a" fill="#8b5cf6" radius={[0,0,0,0]} />
+              <Bar dataKey={t("history.savingsSeries")} stackId="a" fill="#10b981" />
+              <Bar dataKey={t("history.stocksSeries")} stackId="a" fill="#f59e0b" />
+              <Bar dataKey={t("history.cryptoSeries")} stackId="a" fill="#f97316" />
+              <Bar dataKey={t("history.receivablesSeries")} stackId="a" fill="#06b6d4" radius={[4,4,0,0]} />
             </BarChart>
           </ResponsiveContainer>
         ) : (
@@ -449,11 +451,11 @@ export default function HistoryPage() {
               <YAxis tick={{ fill: "#64748b", fontSize: 11 }} tickFormatter={(v) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
               <Tooltip contentStyle={{ background: "#1a1f2e", border: "1px solid #2d3748", borderRadius: "8px" }} formatter={(value: number | undefined, name: string | undefined) => [formatCurrency(value ?? 0, "CZK"), name ?? ""]} />
               <Legend wrapperStyle={{ color: "#64748b", fontSize: "0.8rem" }} />
-              <Line type="monotone" dataKey="Property" stroke="#8b5cf6" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="Savings" stroke="#10b981" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="Stocks" stroke="#f59e0b" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="Crypto" stroke="#f97316" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="Receivables" stroke="#06b6d4" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey={t("history.propertySeries")} stroke="#8b5cf6" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey={t("history.savingsSeries")} stroke="#10b981" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey={t("history.stocksSeries")} stroke="#f59e0b" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey={t("history.cryptoSeries")} stroke="#f97316" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey={t("history.receivablesSeries")} stroke="#06b6d4" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         )}
@@ -461,27 +463,26 @@ export default function HistoryPage() {
 
       <div className="card" style={{ marginBottom: "1.5rem" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-          <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>Manual Cashflow / Contributions</h2>
+          <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>{t("history.manualCashflow")}</h2>
           <div style={{ fontSize: "0.78rem", color: "var(--muted)" }}>
-            Contributions {formatCurrency(contributionTotal, "CZK")} · Withdrawals {formatCurrency(withdrawalTotal, "CZK")}
+            {t("history.contributions")} {formatCurrency(contributionTotal, "CZK")} · {t("history.withdrawals")} {formatCurrency(withdrawalTotal, "CZK")}
           </div>
         </div>
         {cashflowEntries.length === 0 ? (
           <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
-            No cashflow entries yet. Log contributions and withdrawals so net worth
-            changes can be interpreted against actual capital movement.
+            {t("history.noCashflow")}
           </p>
         ) : (
           <div className="table-scroll">
             <table>
               <thead>
-                <tr><th>Date</th><th>Type</th><th>Category</th><th>Amount</th><th>Notes</th><th>Actions</th></tr>
+                <tr><th>{t("common.date")}</th><th>{t("common.type")}</th><th>{t("common.category")}</th><th>{t("common.amount")}</th><th>{t("common.notes")}</th><th>{t("common.actions")}</th></tr>
               </thead>
               <tbody>
                 {cashflowEntries.map((entry) => (
                   <tr key={entry.id as string}>
-                    <td style={{ color: "var(--muted)" }}>{new Date(String(entry.entryDate)).toLocaleDateString("cs-CZ")}</td>
-                    <td>{String(entry.type)}</td>
+                    <td style={{ color: "var(--muted)" }}>{new Date(String(entry.entryDate)).toLocaleDateString(localeTag)}</td>
+                    <td>{String(entry.type) === "WITHDRAWAL" ? t("history.withdrawal") : t("history.contribution")}</td>
                     <td>{String(entry.category)}</td>
                     <td style={{ color: String(entry.type) === "WITHDRAWAL" ? "var(--red)" : "var(--green)", fontWeight: 600 }}>
                       {String(entry.type) === "WITHDRAWAL" ? "-" : "+"}
@@ -491,10 +492,10 @@ export default function HistoryPage() {
                     <td>
                       <div style={{ display: "flex", gap: "0.5rem" }}>
                         <button className="btn-ghost" onClick={() => handleStartEditCashflow(entry)}>
-                          Edit
+                          {t("common.edit")}
                         </button>
                         <button className="btn-ghost" onClick={() => handleDeleteCashflow(entry.id as string)}>
-                          Delete
+                          {t("common.delete")}
                         </button>
                       </div>
                     </td>
@@ -508,17 +509,17 @@ export default function HistoryPage() {
 
       {snapshots.length > 0 && (
         <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-          <div style={{ padding: "1rem 1.5rem", borderBottom: "1px solid var(--card-border)", fontWeight: 700, fontSize: "0.9rem" }}>Snapshot History</div>
+          <div style={{ padding: "1rem 1.5rem", borderBottom: "1px solid var(--card-border)", fontWeight: 700, fontSize: "0.9rem" }}>{t("history.snapshotHistory")}</div>
           <div className="table-scroll">
           <table>
-            <thead><tr><th>Date</th><th>Net Worth</th><th>Assets</th><th>Liabilities</th><th>Change</th><th>Actions</th></tr></thead>
+            <thead><tr><th>{t("common.date")}</th><th>{t("history.currentNetWorth")}</th><th>{t("history.assetsSeries")}</th><th>{t("history.liabilitiesSeries")}</th><th>{t("history.totalChange")}</th><th>{t("common.actions")}</th></tr></thead>
             <tbody>
               {[...snapshots].reverse().map((snap, idx, arr) => {
                 const prev = arr[idx + 1];
                 const change = prev ? (snap.netWorth as number) - (prev.netWorth as number) : null;
                 return (
                   <tr key={snap.id as string}>
-                    <td style={{ color: "var(--muted)", fontSize: "0.8rem" }}>{new Date(String(snap.snapshotDate)).toLocaleDateString("cs-CZ", { dateStyle: "medium" })}</td>
+                    <td style={{ color: "var(--muted)", fontSize: "0.8rem" }}>{new Date(String(snap.snapshotDate)).toLocaleDateString(localeTag, { dateStyle: "medium" })}</td>
                     <td style={{ fontWeight: 700 }}>{formatCurrency(snap.netWorth as number, "CZK")}</td>
                     <td style={{ color: "var(--green)" }}>{formatCurrency(snap.totalAssets as number, "CZK")}</td>
                     <td style={{ color: "var(--red)" }}>{formatCurrency(snap.totalLiabilities as number, "CZK")}</td>
@@ -529,9 +530,9 @@ export default function HistoryPage() {
                       <button
                         className="btn-ghost"
                         onClick={() => handleDeleteSnapshot(snap.id as string, String(snap.snapshotDate))}
-                        aria-label={`Delete snapshot from ${String(snap.snapshotDate)}`}
+                        aria-label={t("history.deleteSnapshotConfirm", { date: String(snap.snapshotDate) })}
                       >
-                        Delete
+                        {t("common.delete")}
                       </button>
                     </td>
                   </tr>
@@ -545,7 +546,7 @@ export default function HistoryPage() {
 
       {showCashflowModal && (
         <Modal
-          title={editingCashflowId ? "Edit Cashflow Entry" : "Add Cashflow Entry"}
+          title={editingCashflowId ? t("history.editCashflow") : t("history.addCashflow")}
           onClose={() => {
             setShowCashflowModal(false);
             resetCashflowForm();
@@ -553,23 +554,23 @@ export default function HistoryPage() {
         >
           <form onSubmit={handleSaveCashflow} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-              <FormField label="Date" name="entryDate" type="date" value={cashflowForm.entryDate} onChange={handleCashflowChange} required />
+              <FormField label={t("common.date")} name="entryDate" type="date" value={cashflowForm.entryDate} onChange={handleCashflowChange} required />
               <FormField
-                label="Type"
+                label={t("common.type")}
                 name="type"
                 value={cashflowForm.type}
                 onChange={handleCashflowChange}
                 options={[
-                  { value: "CONTRIBUTION", label: "Contribution" },
-                  { value: "WITHDRAWAL", label: "Withdrawal" },
+                  { value: "CONTRIBUTION", label: t("history.contribution") },
+                  { value: "WITHDRAWAL", label: t("history.withdrawal") },
                 ]}
               />
             </div>
-            <FormField label="Category" name="category" value={cashflowForm.category} onChange={handleCashflowChange} required />
+            <FormField label={t("common.category")} name="category" value={cashflowForm.category} onChange={handleCashflowChange} required />
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-              <FormField label="Amount" name="amount" type="number" value={cashflowForm.amount} onChange={handleCashflowChange} step="0.01" min="0" required />
+              <FormField label={t("common.amount")} name="amount" type="number" value={cashflowForm.amount} onChange={handleCashflowChange} step="0.01" min="0" required />
               <FormField
-                label="Currency"
+                label={t("common.currency")}
                 name="currency"
                 value={cashflowForm.currency}
                 onChange={handleCashflowChange}
@@ -580,8 +581,8 @@ export default function HistoryPage() {
                 ]}
               />
             </div>
-            <FormField label="Tags" name="tags" value={cashflowForm.tags} onChange={handleCashflowChange} placeholder="salary, rebalance, transfer" />
-            <FormField label="Notes" name="notes" type="textarea" value={cashflowForm.notes} onChange={handleCashflowChange} />
+            <FormField label={t("common.tags")} name="tags" value={cashflowForm.tags} onChange={handleCashflowChange} placeholder={t("history.cashflowTagsPlaceholder")} />
+            <FormField label={t("common.notes")} name="notes" type="textarea" value={cashflowForm.notes} onChange={handleCashflowChange} />
             {cashflowError && (
               <div style={{ fontSize: "0.8rem", color: "var(--red)" }}>
                 {cashflowError}
@@ -596,10 +597,10 @@ export default function HistoryPage() {
                   resetCashflowForm();
                 }}
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button type="submit" className="btn-primary">
-                {editingCashflowId ? "Save Changes" : "Save Entry"}
+                {editingCashflowId ? t("history.saveChanges") : t("common.saveEntry")}
               </button>
             </div>
           </form>

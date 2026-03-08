@@ -42,6 +42,10 @@
     "amount": "Částka",
     "currency": "Měna",
     "actions": "Akce"
+    ,
+    "editShort": "Upravit",
+    "saveNote": "Uložit poznámku",
+    "saveEntry": "Uložit záznam"
   },
   "sidebar": {
     "dashboard": "Dashboard",
@@ -103,6 +107,14 @@
     "title": "Nadpis",
     "body": "Text",
     "noteSaveError": "Poznámku se nepodařilo uložit. Zkontrolujte pole a zkuste to znovu."
+    ,
+    "assetClass_property": "Nemovitosti",
+    "assetClass_savings": "Spoření",
+    "assetClass_receivables": "Pohledávky",
+    "assetClass_stocks": "Akcie",
+    "assetClass_crypto": "Crypto"
+    ,
+    "noteTagsPlaceholder": "rebalancing, evropa, watchlist"
   },
   "crypto": {
     "title": "Crypto pozice",
@@ -273,6 +285,16 @@
     "saveEntry": "Uložit záznam",
     "saveChanges": "Uložit změny",
     "cashflowSaveError": "Cashflow záznam se nepodařilo uložit. Zkontrolujte pole a zkuste to znovu."
+    ,
+    "cryptoSeries": "Crypto",
+    "stocksSeries": "Akcie",
+    "propertySeries": "Nemovitosti",
+    "savingsSeries": "Spoření",
+    "receivablesSeries": "Pohledávky",
+    "assetsSeries": "Aktiva",
+    "liabilitiesSeries": "Závazky"
+    ,
+    "cashflowTagsPlaceholder": "výplata, rebalancing, převod"
   },
   "settings": {
     "title": "Účet",
@@ -317,6 +339,10 @@
     "targetAllocation": "Cílová alokace",
     "targetAllocationDescription": "Nastavte cílové váhy podle tříd aktiv. Dashboard je pak porovnává se současným složením portfolia.",
     "totalTargetWeight": "Celková cílová váha: {value}%",
-    "allocationUpdated": "Cílové alokace byly aktualizovány."
+    "allocationUpdated": "Cílové alokace byly aktualizovány.",
+    "seedPlaceholder": "slovo1 slovo2 slovo3 …"
+  },
+  "loading": {
+    "app": "Načítám…"
   }
 }

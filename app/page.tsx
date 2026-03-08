@@ -13,6 +13,7 @@ import MarketDataStatus from "@/components/MarketDataStatus";
 import StatCard from "@/components/StatCard";
 import Modal from "@/components/Modal";
 import FormField from "@/components/FormField";
+import { useI18n } from "@/components/i18n/I18nProvider";
 import Link from "next/link";
 import {
   ASSET_CLASSES,
@@ -31,6 +32,15 @@ import {
 
 export default function Dashboard() {
   const evolu = useEvolu();
+  const { localeTag, t } = useI18n();
+
+  const assetClassLabels: Record<string, string> = {
+    Property: t("dashboard.assetClass_property"),
+    Savings: t("dashboard.assetClass_savings"),
+    Receivables: t("dashboard.assetClass_receivables"),
+    Stocks: t("dashboard.assetClass_stocks"),
+    Crypto: t("dashboard.assetClass_crypto"),
+  };
 
   // Evolu health indicator – pokud máme createQuery, považujeme klienta
   // za inicializovaný. Je to čistě diagnostická informace pro debug.
@@ -379,7 +389,7 @@ export default function Dashboard() {
       deleted: Evolu.sqliteFalse,
     } as never);
     const showTimeout = window.setTimeout(() => {
-      setAutoSnapshotMsg(`Automatic daily snapshot created for ${todayKey}.`);
+      setAutoSnapshotMsg(t("dashboard.automaticSnapshot", { date: todayKey }));
     }, 0);
     const clearTimeoutId = window.setTimeout(() => setAutoSnapshotMsg(null), 5000);
     return () => {
@@ -396,6 +406,7 @@ export default function Dashboard() {
     receivablesValue,
     savingsValue,
     stocksValue,
+    t,
     todayKey,
     totalAssets,
     totalLiabilities,
@@ -426,7 +437,7 @@ export default function Dashboard() {
         deleted: Evolu.sqliteFalse,
       } as never);
       if (!result.ok) {
-        setNoteError("Unable to save note. Please check the fields and try again.");
+        setNoteError(t("dashboard.noteSaveError"));
         return;
       }
     }
@@ -479,32 +490,32 @@ export default function Dashboard() {
             letterSpacing: "-0.025em",
           }}
         >
-          Dashboard
+          {t("sidebar.dashboard")}
         </h1>
       </div>
 
       <MarketDataStatus
         metaItems={[
           {
-            label: "Today",
-            value: new Date().toLocaleDateString("cs-CZ", {
+            label: t("common.today"),
+            value: new Date().toLocaleDateString(localeTag, {
               weekday: "long",
               day: "numeric",
               month: "long",
             }),
           },
           {
-            label: "Evolu status",
-            value: evoluReady ? "OK" : "offline",
+            label: t("dashboard.evoluStatus"),
+            value: evoluReady ? "OK" : t("dashboard.offline"),
             tone: evoluReady ? "ok" : "error",
           },
         ]}
         sources={[
           ...(cryptos.length > 0
-            ? [{ label: "Crypto prices", ...cryptoStatus }]
+            ? [{ label: t("dashboard.cryptoPrices"), ...cryptoStatus }]
             : []),
           ...(stocks.length > 0
-            ? [{ label: "Stock prices", ...stockStatus }]
+            ? [{ label: t("dashboard.stockPrices"), ...stockStatus }]
             : []),
         ]}
       />
@@ -544,7 +555,7 @@ export default function Dashboard() {
             letterSpacing: "0.08em",
           }}
         >
-          Net Worth
+          {t("dashboard.netWorth")}
         </div>
         <div
           className="net-worth-value"
@@ -572,16 +583,18 @@ export default function Dashboard() {
             }}
           >
             {change >= 0 ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
-            {formatCurrency(Math.abs(change), "CZK")} od posledního snapshotu
+            {t("dashboard.changeFromLastSnapshot", {
+              value: formatCurrency(Math.abs(change), "CZK"),
+            })}
           </div>
         )}
         {change === 0 && (
           <div style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
-            Uložte snapshot v{" "}
+            {t("dashboard.saveSnapshotPrefix")}{" "}
             <Link href="/history" style={{ color: "var(--accent)" }}>
-              History
+              {t("dashboard.historyLink")}
             </Link>{" "}
-            pro sledování vývoje
+            {t("dashboard.saveSnapshotSuffix")}
           </div>
         )}
       </div>
@@ -589,43 +602,43 @@ export default function Dashboard() {
       {/* ── Stat cards ─────────────────────────────────────────── */}
       <div className="stat-grid">
         <StatCard
-          label="Total Assets"
+          label={t("dashboard.totalAssets")}
           value={formatCurrency(totalAssets, "CZK")}
           accent="var(--green)"
           icon={<ArrowUp size={16} />}
         />
         <StatCard
-          label="Total Liabilities"
+          label={t("dashboard.totalLiabilities")}
           value={formatCurrency(totalLiabilities, "CZK")}
           accent="var(--red)"
           icon={<ArrowDown size={16} />}
         />
         <StatCard
-          label="Savings"
+          label={t("dashboard.savings")}
           value={formatCurrency(savingsValue, "CZK")}
           accent="var(--green)"
           icon={<Landmark size={16} />}
           href="/savings"
         />
         <StatCard
-          label="Property"
+          label={t("dashboard.property")}
           value={formatCurrency(propertyValue, "CZK")}
-          sub={`${properties.length} properties`}
+          sub={t("dashboard.propertiesCount", { count: properties.length })}
           accent="#8b5cf6"
           icon={<Home size={16} />}
           href="/property"
         />
         <StatCard
-          label="Receivables"
+          label={t("dashboard.receivables")}
           value={formatCurrency(receivablesValue, "CZK")}
           accent="#06b6d4"
           icon={<NotebookPen size={16} />}
           href="/receivables"
         />
         <StatCard
-          label="Crypto"
+          label={t("dashboard.crypto")}
           value={formatCurrency(cryptoValue, "CZK")}
-          sub={`${cryptos.length} assets`}
+          sub={t("dashboard.assetsCount", { count: cryptos.length })}
           accent="#f97316"
           icon={<Bitcoin size={16} />}
           href="/crypto"
@@ -634,7 +647,7 @@ export default function Dashboard() {
 
       <div className="card" style={{ marginBottom: "1.5rem" }}>
         <h2 style={{ margin: "0 0 1.25rem", fontSize: "1rem", fontWeight: 700 }}>
-          Target vs Actual Allocation
+          {t("dashboard.targetVsActual")}
         </h2>
         <div style={{ display: "grid", gap: "0.85rem" }}>
           {allocationComparison.map((item) => (
@@ -648,9 +661,9 @@ export default function Dashboard() {
                   marginBottom: "0.3rem",
                 }}
               >
-                <span style={{ fontWeight: 600 }}>{item.assetClass}</span>
+                <span style={{ fontWeight: 600 }}>{assetClassLabels[item.assetClass] ?? item.assetClass}</span>
                 <span style={{ color: "var(--muted)" }}>
-                  actual {item.actualPercent.toFixed(1)}% · target {item.targetPercent.toFixed(1)}% ·
+                  {t("dashboard.actual")} {item.actualPercent.toFixed(1)}% · {t("dashboard.target")} {item.targetPercent.toFixed(1)}% ·
                   {" "}
                   <span
                     style={{
@@ -707,11 +720,11 @@ export default function Dashboard() {
           <h2
             style={{ margin: "0 0 1.25rem", fontSize: "1rem", fontWeight: 700 }}
           >
-            Asset Allocation
+            {t("dashboard.assetAllocation")}
           </h2>
           {allocationItems.length === 0 ? (
             <p style={{ color: "var(--muted)", fontSize: "0.875rem" }}>
-              No assets yet. Add your first asset using the sidebar.
+              {t("dashboard.noAssetsYet")}
             </p>
           ) : (
             <div
@@ -762,7 +775,7 @@ export default function Dashboard() {
                               boxShadow: `0 0 6px ${item.color}80`,
                             }}
                           />
-                          {item.label}
+                          {assetClassLabels[item.label] ?? item.label}
                         </span>
                         <span
                           style={{
@@ -819,16 +832,15 @@ export default function Dashboard() {
             }}
           >
             <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>
-              Portfolio Notes
+              {t("dashboard.portfolioNotes")}
             </h2>
             <button className="btn-primary" onClick={() => setShowNoteModal(true)}>
-              + Add Note
+              + {t("dashboard.addNote")}
             </button>
           </div>
           {portfolioNotes.length === 0 ? (
             <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
-              No portfolio notes yet. Add notes for rebalancing decisions,
-              watchlist items, or strategy updates.
+              {t("dashboard.noNotes")}
             </p>
           ) : (
             <div style={{ display: "grid", gap: "0.85rem" }}>
@@ -858,19 +870,19 @@ export default function Dashboard() {
                         onClick={() => handleStartEditNote(note)}
                         style={{ fontSize: "0.72rem" }}
                       >
-                        Edit
+                        {t("common.edit")}
                       </button>
                       <button
                         className="btn-ghost"
                         onClick={() => handleDeleteNote(note.id as string)}
                         style={{ fontSize: "0.72rem" }}
                       >
-                        Delete
+                        {t("common.delete")}
                       </button>
                     </div>
                   </div>
                   <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginBottom: "0.45rem" }}>
-                    {new Date(String(note.noteDate)).toLocaleDateString("cs-CZ")}
+                    {new Date(String(note.noteDate)).toLocaleDateString(localeTag)}
                   </div>
                   <div style={{ fontSize: "0.84rem", lineHeight: 1.6 }}>
                     {note.body as string}
@@ -901,12 +913,11 @@ export default function Dashboard() {
 
         <div className="card">
           <h2 style={{ margin: "0 0 1rem", fontSize: "1rem", fontWeight: 700 }}>
-            Tag Cloud
+            {t("dashboard.tagCloud")}
           </h2>
           {tagCloud.length === 0 ? (
             <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
-              No tags yet. Add tags to assets or notes to make the portfolio easier
-              to filter mentally.
+              {t("dashboard.noTags")}
             </p>
           ) : (
             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.55rem" }}>
@@ -932,7 +943,7 @@ export default function Dashboard() {
 
       {showNoteModal && (
         <Modal
-          title={editingNoteId ? "Edit Portfolio Note" : "Add Portfolio Note"}
+          title={editingNoteId ? t("dashboard.editNote") : t("dashboard.addPortfolioNote")}
           onClose={() => {
             setShowNoteModal(false);
             resetNoteForm();
@@ -943,7 +954,7 @@ export default function Dashboard() {
             style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
           >
             <FormField
-              label="Title"
+              label={t("dashboard.title")}
               name="title"
               value={noteForm.title}
               onChange={(e) =>
@@ -952,7 +963,7 @@ export default function Dashboard() {
               required
             />
             <FormField
-              label="Body"
+              label={t("dashboard.body")}
               name="body"
               type="textarea"
               value={noteForm.body}
@@ -962,13 +973,13 @@ export default function Dashboard() {
               required
             />
             <FormField
-              label="Tags"
+              label={t("common.tags")}
               name="tags"
               value={noteForm.tags}
               onChange={(e) =>
                 setNoteForm((current) => ({ ...current, tags: e.target.value }))
               }
-              placeholder="rebalance, europe, watchlist"
+              placeholder={t("dashboard.noteTagsPlaceholder")}
             />
             {noteError && (
               <div style={{ fontSize: "0.8rem", color: "var(--red)" }}>
@@ -984,10 +995,10 @@ export default function Dashboard() {
                   resetNoteForm();
                 }}
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button type="submit" className="btn-primary">
-                {editingNoteId ? "Save Changes" : "Save Note"}
+                {editingNoteId ? t("history.saveChanges") : t("common.saveNote")}
               </button>
             </div>
           </form>
