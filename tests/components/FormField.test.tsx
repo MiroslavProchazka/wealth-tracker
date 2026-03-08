@@ -95,9 +95,9 @@ describe("FormField", () => {
       expect(screen.getByRole("combobox")).toBeInTheDocument();
     });
 
-    it("zobrazí všechny options + výchozí 'Select…'", () => {
+    it("zobrazí všechny options + výchozí 'Vyberte…'", () => {
       render(<FormField label="Měna" name="currency" value="" onChange={noop} options={options} />);
-      expect(screen.getByRole("option", { name: "Select…" })).toBeInTheDocument();
+      expect(screen.getByRole("option", { name: "Vyberte…" })).toBeInTheDocument();
       expect(screen.getByRole("option", { name: "Česká koruna" })).toBeInTheDocument();
       expect(screen.getByRole("option", { name: "US Dollar" })).toBeInTheDocument();
       expect(screen.getByRole("option", { name: "Euro" })).toBeInTheDocument();

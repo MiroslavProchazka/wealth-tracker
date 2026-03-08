@@ -35,8 +35,6 @@ interface I18nContextValue {
   t: (key: string, vars?: Record<string, string | number>) => string;
 }
 
-const I18nContext = createContext<I18nContextValue | null>(null);
-
 function isSupportedLanguage(value: string | null): value is AppLanguage {
   return value !== null && SUPPORTED_LANGUAGES.includes(value as AppLanguage);
 }
@@ -60,6 +58,20 @@ function interpolate(template: string, vars?: Record<string, string | number>) {
     vars[token] !== undefined ? String(vars[token]) : `{${token}}`,
   );
 }
+
+const defaultContextValue: I18nContextValue = {
+  language: DEFAULT_LANGUAGE,
+  localeTag: INTL_LOCALES[DEFAULT_LANGUAGE],
+  setLanguage: () => {},
+  t: (key, vars) => {
+    const resolved =
+      resolveMessage(MESSAGES[DEFAULT_LANGUAGE], key) ??
+      key;
+    return interpolate(resolved, vars);
+  },
+};
+
+const I18nContext = createContext<I18nContextValue>(defaultContextValue);
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<AppLanguage>(() => {
@@ -94,11 +106,5 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useI18n() {
-  const context = useContext(I18nContext);
-
-  if (!context) {
-    throw new Error("useI18n must be used within I18nProvider");
-  }
-
-  return context;
+  return useContext(I18nContext);
 }
