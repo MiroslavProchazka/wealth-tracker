@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
+import SidebarStatusSync from "@/components/SidebarStatusSync";
 import EvoluNoSSR from "@/components/EvoluNoSSR";
 import SwRegister from "@/components/SwRegister";
 import { DashboardStatusProvider } from "@/components/DashboardStatusContext";
@@ -43,6 +44,7 @@ export default function RootLayout({
                 EvoluNoSSR wrapper so it renders immediately on first paint. */}
             <Sidebar />
             <EvoluNoSSR>
+              <SidebarStatusSync />
               <main
                 className="main-content"
                 style={{
