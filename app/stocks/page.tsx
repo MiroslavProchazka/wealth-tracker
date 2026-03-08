@@ -450,10 +450,12 @@ export default function StocksPage() {
           display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.85rem",
         }}>
           <span>
-            🔔 <strong>{alert.ticker}</strong> je{" "}
-            {alert.direction === "above" ? t("stocks.directionAbove") : t("stocks.directionBelow")}{" "}
-            hranicí{" "}
-            <strong>{formatCurrency(alert.threshold, "CZK")}</strong>
+            🔔{" "}
+            {t("stocks.alertBanner", {
+              ticker: alert.ticker,
+              direction: alert.direction === "above" ? t("stocks.directionAbove") : t("stocks.directionBelow"),
+              threshold: formatCurrency(alert.threshold, "CZK"),
+            })}
             {prices[alert.ticker] && (
               <span style={{ color: "var(--muted)", marginLeft: "0.5rem" }}>
                 · {t("common.now")} {formatCurrency(prices[alert.ticker].czk, "CZK")}
