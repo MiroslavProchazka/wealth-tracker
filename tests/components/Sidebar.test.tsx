@@ -17,25 +17,25 @@ describe("Sidebar", () => {
     it("zobrazí 'Personal Finance' podtitulek", () => {
       mockUsePathname.mockReturnValue("/");
       render(<Sidebar />);
-      expect(screen.getByText("Personal Finance")).toBeInTheDocument();
+      expect(screen.getByText("Osobní finance")).toBeInTheDocument();
     });
 
     it("zobrazí footer se statusem synchronizace", () => {
       mockUsePathname.mockReturnValue("/");
       render(<Sidebar />);
-      expect(screen.getByText(/Synced/)).toBeInTheDocument();
+      expect(screen.getByText(/Synchronizováno/)).toBeInTheDocument();
     });
 
     it("footer zobrazí 'Synced via Evolu'", () => {
       mockUsePathname.mockReturnValue("/");
       render(<Sidebar />);
-      expect(screen.getByText("Synced via Evolu")).toBeInTheDocument();
+      expect(screen.getByText("Synchronizováno přes Evolu")).toBeInTheDocument();
     });
 
     it("footer sync status má zelený text", () => {
       mockUsePathname.mockReturnValue("/");
       render(<Sidebar />);
-      const syncText = screen.getByText("Synced via Evolu");
+      const syncText = screen.getByText("Synchronizováno přes Evolu");
       expect(syncText).toHaveStyle({ color: "var(--green)" });
     });
   });
@@ -54,11 +54,11 @@ describe("Sidebar", () => {
     const navItems = [
       { label: "Dashboard", href: "/" },
       { label: "Crypto", href: "/crypto" },
-      { label: "Stocks", href: "/stocks" },
-      { label: "Property", href: "/property" },
-      { label: "Savings", href: "/savings" },
-      { label: "History", href: "/history" },
-      { label: "Account", href: "/settings", exact: true },
+      { label: "Akcie", href: "/stocks" },
+      { label: "Nemovitosti", href: "/property" },
+      { label: "Spoření", href: "/savings" },
+      { label: "Historie", href: "/history" },
+      { label: "Účet", href: "/settings", exact: true },
     ];
 
     it.each(navItems)("$label má href '$href'", ({ href }) => {
@@ -75,7 +75,7 @@ describe("Sidebar", () => {
       mockUsePathname.mockReturnValue("/crypto");
       render(<Sidebar />);
       // Sidebar renderuje linky dvakrát (desktop + mobile) — bereme první (desktop)
-      const cryptoLink = screen.getAllByRole("link", { name: /Crypto/ })[0];
+      const cryptoLink = screen.getAllByRole("link", { name: /^Crypto$/ })[0];
       expect(cryptoLink).toHaveStyle({ fontWeight: 600 });
     });
 
@@ -96,8 +96,8 @@ describe("Sidebar", () => {
     it("na /property je aktivní pouze Property", () => {
       mockUsePathname.mockReturnValue("/property");
       render(<Sidebar />);
-      const propertyLink = screen.getAllByRole("link", { name: /Property/ })[0];
-      const cryptoLink = screen.getAllByRole("link", { name: /Crypto/ })[0];
+      const propertyLink = screen.getAllByRole("link", { name: /Nemovitosti/ })[0];
+      const cryptoLink = screen.getAllByRole("link", { name: /^Crypto$/ })[0];
       expect(propertyLink).toHaveStyle({ fontWeight: 600 });
       expect(cryptoLink).toHaveStyle({ fontWeight: 400 });
     });
@@ -105,7 +105,7 @@ describe("Sidebar", () => {
     it("aktivní odkaz má gradient pozadí (zvýrazněno)", () => {
       mockUsePathname.mockReturnValue("/stocks");
       render(<Sidebar />);
-      const stocksLink = screen.getAllByRole("link", { name: /Stocks/ })[0];
+      const stocksLink = screen.getAllByRole("link", { name: /Akcie/ })[0];
       const bg = (stocksLink as HTMLElement).style.background;
       expect(bg).toBeTruthy();
       expect(bg).not.toBe("transparent");
@@ -115,7 +115,7 @@ describe("Sidebar", () => {
     it("neaktivní odkaz má transparentní pozadí", () => {
       mockUsePathname.mockReturnValue("/stocks");
       render(<Sidebar />);
-      const cryptoLink = screen.getAllByRole("link", { name: /Crypto/ })[0];
+      const cryptoLink = screen.getAllByRole("link", { name: /^Crypto$/ })[0];
       expect(cryptoLink).toHaveStyle({ background: "transparent" });
     });
   });
