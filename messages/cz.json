@@ -64,7 +64,7 @@
     "minutesAgo": "Aktualizováno před {count} min",
     "hoursAgo": "Aktualizováno před {count} h",
     "updatedAt": "Aktualizováno {value}",
-    "compactNever": "—",
+    "compactNever": "bez dat",
     "compactJustNow": "↻ teď",
     "compactMinutesAgo": "↻ {count} min",
     "compactHoursAgo": "↻ {count} h",
