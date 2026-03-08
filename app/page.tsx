@@ -261,7 +261,7 @@ export default function Dashboard() {
           day: "numeric",
           month: "long",
         }),
-        tone: "neutral" as const,
+        tone: "ok" as const,
       },
       {
         label: t("dashboard.evoluStatus"),
@@ -272,6 +272,7 @@ export default function Dashboard() {
         ? [
             {
               label: t("dashboard.cryptoPrices"),
+<<<<<<< HEAD
               value: cryptoStatus.loading
                 ? t("marketStatus.refreshing")
                 : cryptoStatus.error
@@ -293,6 +294,9 @@ export default function Dashboard() {
                     : cryptoStatus.fetchedAt
                       ? t("marketStatus.justNow")
                       : t("marketStatus.never"),
+=======
+              value: formatCompactMarketStatus(cryptoStatus, localeTag, t),
+>>>>>>> 5fdc0e7 (Refine sidebar status badge copy)
               tone: cryptoStatus.error
                 ? ("error" as const)
                 : cryptoStatus.stale
@@ -307,6 +311,7 @@ export default function Dashboard() {
         ? [
             {
               label: t("dashboard.stockPrices"),
+<<<<<<< HEAD
               value: stockStatus.loading
                 ? t("marketStatus.refreshing")
                 : stockStatus.error
@@ -328,6 +333,9 @@ export default function Dashboard() {
                     : stockStatus.fetchedAt
                       ? t("marketStatus.justNow")
                       : t("marketStatus.never"),
+=======
+              value: formatCompactMarketStatus(stockStatus, localeTag, t),
+>>>>>>> 5fdc0e7 (Refine sidebar status badge copy)
               tone: stockStatus.error
                 ? ("error" as const)
                 : stockStatus.stale
