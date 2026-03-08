@@ -390,10 +390,12 @@ export default function CryptoPage() {
           display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.85rem",
         }}>
           <span>
-            🔔 <strong>{alert.symbol}</strong> je{" "}
-            {alert.direction === "above" ? t("crypto.directionAbove") : t("crypto.directionBelow")}{" "}
-            hranicí{" "}
-            <strong>{formatCurrency(alert.threshold, "CZK")}</strong>
+            🔔{" "}
+            {t("crypto.alertBanner", {
+              symbol: alert.symbol,
+              direction: alert.direction === "above" ? t("crypto.directionAbove") : t("crypto.directionBelow"),
+              threshold: formatCurrency(alert.threshold, "CZK"),
+            })}
             {prices[alert.symbol] && (
               <span style={{ color: "var(--muted)", marginLeft: "0.5rem" }}>
                 · {t("common.now")} {formatCurrency(prices[alert.symbol].czk, "CZK")}
