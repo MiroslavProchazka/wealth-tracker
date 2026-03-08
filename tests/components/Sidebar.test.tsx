@@ -20,23 +20,23 @@ describe("Sidebar", () => {
       expect(screen.getByText("Osobní finance")).toBeInTheDocument();
     });
 
-    it("zobrazí footer se statusem synchronizace", () => {
+    it("zobrazí footer se statusem Evolu", () => {
       mockUsePathname.mockReturnValue("/");
       render(<Sidebar />);
-      expect(screen.getByText(/Synchronizováno/)).toBeInTheDocument();
+      expect(screen.getByText("Stav Evolu")).toBeInTheDocument();
     });
 
-    it("footer zobrazí 'Synced via Evolu'", () => {
+    it("footer zobrazí fallback badge s neznámou hodnotou", () => {
       mockUsePathname.mockReturnValue("/");
       render(<Sidebar />);
-      expect(screen.getByText("Synchronizováno přes Evolu")).toBeInTheDocument();
+      expect(screen.getByText("—")).toBeInTheDocument();
     });
 
-    it("footer sync status má zelený text", () => {
+    it("footer status badge používá neutrální text labelu", () => {
       mockUsePathname.mockReturnValue("/");
       render(<Sidebar />);
-      const syncText = screen.getByText("Synchronizováno přes Evolu");
-      expect(syncText).toHaveStyle({ color: "var(--green)" });
+      const statusLabel = screen.getByText("Stav Evolu");
+      expect(statusLabel).toHaveStyle({ color: "var(--text-2)" });
     });
   });
 
