@@ -78,15 +78,7 @@ export default function SidebarStatusSync() {
       .map((item) => (item.symbol as string).toUpperCase())
       .filter(Boolean);
 
-    if (symbols.length === 0) {
-      setCryptoStatus({
-        loading: false,
-        stale: false,
-        error: null,
-        fetchedAt: null,
-      });
-      return;
-    }
+    if (symbols.length === 0) return;
 
     fetch(`/api/crypto/prices?symbols=${encodeURIComponent(symbols.join(","))}`)
       .then(async (response) => {
@@ -113,15 +105,7 @@ export default function SidebarStatusSync() {
       .map((item) => (item.ticker as string).toUpperCase())
       .filter(Boolean);
 
-    if (tickers.length === 0) {
-      setStockStatus({
-        loading: false,
-        stale: false,
-        error: null,
-        fetchedAt: null,
-      });
-      return;
-    }
+    if (tickers.length === 0) return;
 
     fetch(`/api/stocks/prices?tickers=${encodeURIComponent(tickers.join(","))}`)
       .then(async (response) => {
