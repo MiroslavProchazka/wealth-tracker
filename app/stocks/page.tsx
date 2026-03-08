@@ -6,6 +6,7 @@ import { useEvolu } from "@/lib/evolu";
 import Modal from "@/components/Modal";
 import FormField from "@/components/FormField";
 import { formatCurrency, formatPercent } from "@/lib/currencies";
+import { useI18n } from "@/components/i18n/I18nProvider";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid,
@@ -145,6 +146,7 @@ function formatVolume(v: number): string {
 
 export default function StocksPage() {
   const evolu = useEvolu();
+  const { localeTag, t } = useI18n();
 
   // Form & UI state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -350,7 +352,7 @@ export default function StocksPage() {
   }
 
   function handleDelete(id: string) {
-    if (!confirm("Smazat tento holding?")) return;
+    if (!confirm(t("stocks.deleteConfirm"))) return;
     evolu.update("stockHolding", { id: id as never, deleted: Evolu.sqliteTrue } as never);
   }
 
@@ -449,11 +451,12 @@ export default function StocksPage() {
         }}>
           <span>
             🔔 <strong>{alert.ticker}</strong> je{" "}
-            {alert.direction === "above" ? "nad" : "pod"} hranicí{" "}
+            {alert.direction === "above" ? t("stocks.directionAbove") : t("stocks.directionBelow")}{" "}
+            hranicí{" "}
             <strong>{formatCurrency(alert.threshold, "CZK")}</strong>
             {prices[alert.ticker] && (
               <span style={{ color: "var(--muted)", marginLeft: "0.5rem" }}>
-                · nyní {formatCurrency(prices[alert.ticker].czk, "CZK")}
+                · {t("common.now")} {formatCurrency(prices[alert.ticker].czk, "CZK")}
               </span>
             )}
           </span>
@@ -465,12 +468,14 @@ export default function StocksPage() {
       {/* ── Header ── */}
       <div className="page-header-row">
         <div>
-          <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 700 }}>Stock Holdings</h1>
+          <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 700 }}>{t("stocks.title")}</h1>
           <p style={{ color: "var(--muted)", margin: "0.35rem 0 0", fontSize: "0.875rem" }}>
-            Live ceny Yahoo Finance · US, EU, CZ akcie & ETF
+            {t("stocks.subtitle")}
             {lastUpdated && (
               <span style={{ marginLeft: "0.75rem", opacity: 0.6 }}>
-                · aktualizováno {lastUpdated.toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit" })}
+                · {t("stocks.updatedAt", {
+                  time: lastUpdated.toLocaleTimeString(localeTag, { hour: "2-digit", minute: "2-digit" }),
+                })}
               </span>
             )}
           </p>
@@ -491,11 +496,11 @@ export default function StocksPage() {
           </div>
           <button className="btn-ghost" onClick={() => fetchPrices(true)} disabled={pricesLoading}
             style={{ fontSize: "0.8rem", padding: "0.4rem 0.75rem" }}>
-            {pricesLoading ? "⏳" : "↻ Refresh"}
+            {pricesLoading ? "⏳" : `↻ ${t("common.refresh")}`}
           </button>
           <button className="btn-ghost" onClick={() => setShowAlertsModal(true)}
             style={{ fontSize: "0.8rem", padding: "0.4rem 0.75rem", position: "relative" }}>
-            🔔 Alerty
+            🔔 {t("common.alerts")}
             {alerts.length > 0 && (
               <span style={{
                 marginLeft: "0.3rem", background: "var(--accent)", color: "white",
@@ -503,14 +508,14 @@ export default function StocksPage() {
               }}>{alerts.length}</span>
             )}
           </button>
-          <button className="btn-primary" onClick={() => setShowAddModal(true)}>+ Add Holding</button>
+          <button className="btn-primary" onClick={() => setShowAddModal(true)}>+ {t("common.addHolding")}</button>
         </div>
       </div>
 
       {/* ── Summary cards ── */}
       <div className="stat-grid-4">
         <div className="card" style={{ background: "linear-gradient(135deg, #1a1f2e 0%, #1a201e 100%)", borderColor: "rgba(59,130,246,0.3)" }}>
-          <div style={{ fontSize: "0.68rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>Celkem</div>
+          <div style={{ fontSize: "0.68rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>{t("common.total")}</div>
           <div style={{ fontSize: "1.45rem", fontWeight: 800, color: "#3b82f6" }}>
             {hasPrices
               ? formatCurrency(displayCurrency === "CZK" ? totalCzk : displayCurrency === "USD" ? totalUsd : totalEur, displayCurrency)
@@ -522,29 +527,29 @@ export default function StocksPage() {
         </div>
 
         <div className="card">
-          <div style={{ fontSize: "0.68rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>P&L (vs nákup)</div>
+          <div style={{ fontSize: "0.68rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>{t("stocks.pnlVsBuy")}</div>
           {hasPnl ? (
             <div style={{ fontSize: "1.45rem", fontWeight: 800, color: totalPnlCzk >= 0 ? "var(--green)" : "#ef4444" }}>
               {(totalPnlCzk >= 0 ? "+" : "") + formatCurrency(totalPnlCzk, "CZK")}
             </div>
           ) : (
-            <div style={{ fontSize: "0.82rem", color: "var(--muted)", marginTop: "0.4rem" }}>Zadej nákupní cenu</div>
+            <div style={{ fontSize: "0.82rem", color: "var(--muted)", marginTop: "0.4rem" }}>{t("stocks.enterBuyPrice")}</div>
           )}
         </div>
 
         <div className="card">
-          <div style={{ fontSize: "0.68rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>Pozice</div>
+          <div style={{ fontSize: "0.68rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>{t("common.positions")}</div>
           <div style={{ fontSize: "1.45rem", fontWeight: 800 }}>{holdings.length}</div>
         </div>
 
         <div className="card">
-          <div style={{ fontSize: "0.68rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>Status</div>
+          <div style={{ fontSize: "0.68rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>{t("common.status")}</div>
           <div style={{ fontSize: "0.92rem", fontWeight: 600, marginTop: "0.15rem" }}>
-            {pricesLoading && <span style={{ color: "var(--muted)" }}>⏳ Načítám…</span>}
+            {pricesLoading && <span style={{ color: "var(--muted)" }}>⏳ {t("common.loading")}</span>}
             {pricesError && <span style={{ color: "#ef4444", fontSize: "0.75rem" }}>⚠ {pricesError}</span>}
-            {!pricesLoading && !pricesError && hasPrices && <span style={{ color: "var(--green)" }}>✓ Live</span>}
-            {!pricesLoading && !pricesError && !hasPrices && holdings.length > 0 && <span style={{ color: "var(--muted)" }}>Čekám…</span>}
-            {holdings.length === 0 && <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>Žádné holdingy</span>}
+            {!pricesLoading && !pricesError && hasPrices && <span style={{ color: "var(--green)" }}>✓ {t("common.live")}</span>}
+            {!pricesLoading && !pricesError && !hasPrices && holdings.length > 0 && <span style={{ color: "var(--muted)" }}>{t("common.waiting")}</span>}
+            {holdings.length === 0 && <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>{t("common.noHoldings")}</span>}
           </div>
         </div>
       </div>
@@ -552,7 +557,7 @@ export default function StocksPage() {
       {/* ── Portfolio allocation bar ── */}
       {allocations.length > 0 && (
         <div className="card" style={{ marginBottom: "1.5rem" }}>
-          <div style={{ fontSize: "0.72rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>Alokace portfolia</div>
+          <div style={{ fontSize: "0.72rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>{t("common.portfolioAllocation")}</div>
           <div style={{ display: "flex", height: "10px", borderRadius: "5px", overflow: "hidden", marginBottom: "0.7rem" }}>
             {allocations.map((a) => (
               <div key={a.ticker}
@@ -582,21 +587,21 @@ export default function StocksPage() {
         {holdings.length === 0 ? (
           <div style={{ padding: "3rem", textAlign: "center", color: "var(--muted)" }}>
             <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>📈</div>
-            <p style={{ margin: 0, fontWeight: 500 }}>Žádné stock pozice</p>
-            <p style={{ margin: "0.5rem 0 0", fontSize: "0.8rem" }}>Přidej první holding · US, EU i CZ akcie · ETF</p>
+            <p style={{ margin: 0, fontWeight: 500 }}>{t("stocks.emptyTitle")}</p>
+            <p style={{ margin: "0.5rem 0 0", fontSize: "0.8rem" }}>{t("stocks.emptySubtitle")}</p>
           </div>
         ) : (
           <div className="table-scroll">
           <table>
             <thead>
               <tr>
-                <th>Akcie / ETF</th>
-                <th style={{ textAlign: "right" }}>Počet</th>
-                <th style={{ textAlign: "right" }}>Nákup / ks</th>
-                <th style={{ textAlign: "right" }}>Cena / ks ({displayCurrency})</th>
+                <th>{t("stocks.stockEtf")}</th>
+                <th style={{ textAlign: "right" }}>{t("stocks.shares")}</th>
+                <th style={{ textAlign: "right" }}>{t("stocks.buyPerUnit")}</th>
+                <th style={{ textAlign: "right" }}>{t("stocks.pricePerUnit", { currency: displayCurrency })}</th>
                 <th style={{ textAlign: "right" }}>24h</th>
                 <th style={{ textAlign: "right" }}>P&L (CZK)</th>
-                <th style={{ textAlign: "right" }}>Hodnota ({displayCurrency})</th>
+                <th style={{ textAlign: "right" }}>{t("stocks.value", { currency: displayCurrency })}</th>
                 <th></th>
               </tr>
             </thead>
@@ -636,11 +641,11 @@ export default function StocksPage() {
                       </div>
                     </td>
                     <td style={{ textAlign: "right", fontFamily: "monospace", fontSize: "0.88rem" }}>
-                      {(h.shares as number).toLocaleString("cs-CZ", { maximumFractionDigits: 6 })}
+                      {(h.shares as number).toLocaleString(localeTag, { maximumFractionDigits: 6 })}
                     </td>
                     <td style={{ textAlign: "right", color: "var(--muted)", fontSize: "0.82rem" }}>
                       {h.buyPriceOrig !== null
-                        ? `${h.buyPriceOrig.toLocaleString("cs-CZ", { maximumFractionDigits: 2 })} ${h.currency}`
+                        ? `${h.buyPriceOrig.toLocaleString(localeTag, { maximumFractionDigits: 2 })} ${h.currency}`
                         : <span style={{ opacity: 0.35 }}>—</span>}
                     </td>
                     <td style={{ textAlign: "right", fontSize: "0.85rem" }}>
@@ -670,10 +675,10 @@ export default function StocksPage() {
                       <div style={{ display: "flex", gap: "0.4rem" }}>
                         <button
                           onClick={() => { setChartTicker(h.ticker); setChartDays(30); }}
-                          title="Historický chart"
+                          title={t("common.historicalChart")}
                           style={{ background: "none", border: "1px solid var(--card-border)", borderRadius: "6px", padding: "0.3rem 0.5rem", cursor: "pointer", color: "var(--muted)", fontSize: "0.8rem" }}
                         >📈</button>
-                        <button className="btn-ghost" onClick={() => handleStartEdit(h)} title="Upravit" style={{ padding: "0.3rem 0.5rem", fontSize: "0.8rem" }}>✏️</button>
+                        <button className="btn-ghost" onClick={() => handleStartEdit(h)} title={t("common.edit")} style={{ padding: "0.3rem 0.5rem", fontSize: "0.8rem" }}>✏️</button>
                         <button className="btn-danger" onClick={() => handleDelete(h.id as string)}>✕</button>
                       </div>
                     </td>
@@ -689,7 +694,7 @@ export default function StocksPage() {
       {/* ── Sector breakdown ── */}
       {Object.keys(sectorMap).length > 1 && (
         <div className="card" style={{ marginBottom: "1.25rem" }}>
-          <div style={{ fontSize: "0.72rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>Sektory</div>
+          <div style={{ fontSize: "0.72rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>{t("stocks.sectors")}</div>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.45rem" }}>
             {Object.entries(sectorMap)
               .sort((a, b) => b[1] - a[1])
@@ -727,7 +732,7 @@ export default function StocksPage() {
             ))}
           </div>
           {chartLoading ? (
-            <div style={{ textAlign: "center", padding: "3rem", color: "var(--muted)" }}>⏳ Načítám historii…</div>
+            <div style={{ textAlign: "center", padding: "3rem", color: "var(--muted)" }}>⏳ {t("common.loading")}</div>
           ) : chartData.length > 0 ? (
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={chartData} margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
@@ -753,8 +758,8 @@ export default function StocksPage() {
                 <Tooltip
                   contentStyle={{ background: "#1a1f2e", border: "1px solid #2d3748", borderRadius: "8px", fontSize: "0.82rem" }}
                   labelStyle={{ color: "#64748b" }}
-                  formatter={(v: number | undefined) => [v !== undefined ? formatCurrency(v, displayCurrency) : "—", "Cena"]}
-                  labelFormatter={(label: unknown) => typeof label === "string" ? new Date(label).toLocaleDateString("cs-CZ") : ""}
+                  formatter={(v: number | undefined) => [v !== undefined ? formatCurrency(v, displayCurrency) : "—", t("common.price")]}
+                  labelFormatter={(label: unknown) => typeof label === "string" ? new Date(label).toLocaleDateString(localeTag) : ""}
                 />
                 <Line
                   type="monotone"
@@ -767,7 +772,7 @@ export default function StocksPage() {
               </LineChart>
             </ResponsiveContainer>
           ) : (
-            <div style={{ textAlign: "center", padding: "3rem", color: "var(--muted)" }}>Žádná historická data</div>
+            <div style={{ textAlign: "center", padding: "3rem", color: "var(--muted)" }}>{t("common.noHistoricalData")}</div>
           )}
         </Modal>
       )}
@@ -775,7 +780,7 @@ export default function StocksPage() {
       {/* ── Detail modal ── */}
       {detailTicker && detailHolding && (
         <Modal
-          title={`${detailTicker} — Detail`}
+          title={`${detailTicker} — ${t("stocks.detail")}`}
           onClose={() => setDetailTicker(null)}
         >
           <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
@@ -806,8 +811,8 @@ export default function StocksPage() {
             {detailPrice && (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.75rem" }}>
                 {[
-                  { label: "Moje pozice", value: `${(detailHolding.shares as number).toLocaleString("cs-CZ", { maximumFractionDigits: 6 })} ks` },
-                  { label: "Hodnota", value: formatCurrency(detailHolding.currentCzk ?? 0, "CZK") },
+                  { label: t("stocks.myPosition"), value: `${(detailHolding.shares as number).toLocaleString(localeTag, { maximumFractionDigits: 6 })} ks` },
+                  { label: t("crypto.value", { currency: "CZK" }), value: formatCurrency(detailHolding.currentCzk ?? 0, "CZK") },
                   { label: "P&L", value: detailHolding.pnlCzk !== null ? `${detailHolding.pnlCzk >= 0 ? "+" : ""}${formatCurrency(detailHolding.pnlCzk, "CZK")}` : "—", color: detailHolding.pnlCzk !== null ? (detailHolding.pnlCzk >= 0 ? "var(--green)" : "#ef4444") : undefined },
                   { label: "Open", value: detailPrice.open ? formatCurrency(detailPrice.open, detailPrice.originalCurrency) : "—" },
                   { label: "High", value: detailPrice.high ? formatCurrency(detailPrice.high, detailPrice.originalCurrency) : "—" },
@@ -815,9 +820,9 @@ export default function StocksPage() {
                   { label: "52W High", value: detailPrice.week52High ? formatCurrency(detailPrice.week52High, detailPrice.originalCurrency) : "—" },
                   { label: "52W Low", value: detailPrice.week52Low ? formatCurrency(detailPrice.week52Low, detailPrice.originalCurrency) : "—" },
                   { label: "Volume", value: detailPrice.volume ? formatVolume(detailPrice.volume) : "—" },
-                  { label: "Market Cap", value: detailPrice.marketCap ? formatCurrency(detailPrice.marketCap, "CZK", true) : "—" },
+                  { label: t("stocks.marketCap"), value: detailPrice.marketCap ? formatCurrency(detailPrice.marketCap, "CZK", true) : "—" },
                   { label: "P/E Ratio", value: detailPrice.pe ? detailPrice.pe.toFixed(1) : "—" },
-                  { label: "Dividend Yield", value: detailPrice.dividendYield ? `${(detailPrice.dividendYield * 100).toFixed(2)}%` : "—" },
+                  { label: t("stocks.dividendYield"), value: detailPrice.dividendYield ? `${(detailPrice.dividendYield * 100).toFixed(2)}%` : "—" },
                 ].map(({ label, value, color }) => (
                   <div key={label} style={{ padding: "0.6rem 0.8rem", borderRadius: "8px", background: "rgba(255,255,255,0.03)", border: "1px solid var(--card-border)" }}>
                     <div style={{ fontSize: "0.65rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "0.25rem" }}>{label}</div>
@@ -829,9 +834,9 @@ export default function StocksPage() {
 
             <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
               <button className="btn-ghost" onClick={() => { setDetailTicker(null); setChartTicker(detailTicker); setChartDays(30); }}>
-                📈 Chart
+                📈 {t("stocks.chart")}
               </button>
-              <button className="btn-ghost" onClick={() => setDetailTicker(null)}>Zavřít</button>
+              <button className="btn-ghost" onClick={() => setDetailTicker(null)}>{t("common.close")}</button>
             </div>
           </div>
         </Modal>
@@ -839,12 +844,12 @@ export default function StocksPage() {
 
       {/* ── Add / Edit Holding modal ── */}
       {showAddModal && (
-        <Modal title={editingId ? "Upravit Stock / ETF" : "Přidat Stock / ETF"} onClose={() => { setShowAddModal(false); setForm(emptyForm); setEditingId(null); setSearchResults([]); }}>
+        <Modal title={editingId ? t("stocks.editHolding") : t("stocks.addHolding")} onClose={() => { setShowAddModal(false); setForm(emptyForm); setEditingId(null); setSearchResults([]); }}>
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
 
             {/* Ticker with autocomplete */}
             <div style={{ position: "relative" }}>
-              <FormField label="Ticker (AAPL, CEZ.PR, VUSA.L…)" name="ticker" value={form.ticker}
+              <FormField label={t("stocks.ticker")} name="ticker" value={form.ticker}
                 onChange={handleFormChange} placeholder="AAPL" required />
               {searchLoading && (
                 <div style={{ position: "absolute", right: "0.75rem", top: "2rem", color: "var(--muted)", fontSize: "0.75rem" }}>⏳</div>
@@ -879,14 +884,14 @@ export default function StocksPage() {
               )}
             </div>
 
-            <FormField label="Název společnosti / ETF" name="name" value={form.name}
+            <FormField label={t("stocks.companyName")} name="name" value={form.name}
               onChange={handleFormChange} placeholder="Apple Inc." required />
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-              <FormField label="Počet akcií / jednotek" name="shares" type="number"
+              <FormField label={t("stocks.shareCount")} name="shares" type="number"
                 value={form.shares} onChange={handleFormChange}
                 placeholder="10" step="any" min="0" required />
-              <FormField label="Měna" name="currency" value={form.currency}
+              <FormField label={t("common.currency")} name="currency" value={form.currency}
                 onChange={handleFormChange}
                 options={[
                   { value: "USD", label: "USD" }, { value: "EUR", label: "EUR" },
@@ -895,21 +900,21 @@ export default function StocksPage() {
                 ]} />
             </div>
 
-            <FormField label={`Průměrná nákupní cena (${form.currency} / ks) — volitelné`}
+            <FormField label={t("stocks.buyPriceOptional", { currency: form.currency })}
               name="buyPrice" type="number" value={form.buyPrice}
               onChange={handleFormChange} placeholder="150.00" step="any" min="0" />
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-              <FormField label="Burza — volitelné" name="exchange" value={form.exchange}
+              <FormField label={t("stocks.exchangeOptional")} name="exchange" value={form.exchange}
                 onChange={handleFormChange} options={EXCHANGE_OPTIONS} />
-              <FormField label="Sektor — volitelné" name="sector" value={form.sector}
+              <FormField label={t("stocks.sectorOptional")} name="sector" value={form.sector}
                 onChange={handleFormChange} options={SECTOR_OPTIONS} />
             </div>
 
-            <FormField label="Tagy" name="tags" value={form.tags}
+            <FormField label={t("common.tags")} name="tags" value={form.tags}
               onChange={handleFormChange} placeholder="dividend, usa, growth" />
-            <FormField label="Poznámky" name="notes" type="textarea" value={form.notes}
-              onChange={handleFormChange} placeholder="Nepovinné…" rows={2} />
+            <FormField label={t("common.notes")} name="notes" type="textarea" value={form.notes}
+              onChange={handleFormChange} placeholder={t("common.optional")} rows={2} />
 
             {/* Live preview */}
             {form.ticker && prices[form.ticker.toUpperCase()] && form.shares && parseFloat(form.shares) > 0 && (() => {
@@ -920,7 +925,7 @@ export default function StocksPage() {
                 : null;
               return (
                 <div style={{ padding: "0.75rem", borderRadius: "8px", background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.2)", fontSize: "0.85rem" }}>
-                  💡 Aktuální hodnota: <strong>{formatCurrency(val, "CZK")}</strong>
+                  💡 {t("common.currentValue")}: <strong>{formatCurrency(val, "CZK")}</strong>
                   {buyPnl !== null && (
                     <span style={{ marginLeft: "0.75rem", color: buyPnl >= 0 ? "var(--green)" : "#ef4444" }}>
                       · P&L: {(buyPnl >= 0 ? "+" : "") + formatCurrency(buyPnl, "CZK")}
@@ -934,8 +939,8 @@ export default function StocksPage() {
             })()}
 
             <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", marginTop: "0.5rem" }}>
-              <button type="button" className="btn-ghost" onClick={() => { setShowAddModal(false); setForm(emptyForm); setEditingId(null); setSearchResults([]); }}>Zrušit</button>
-              <button type="submit" className="btn-primary">{editingId ? "Uložit změny" : "Přidat"}</button>
+              <button type="button" className="btn-ghost" onClick={() => { setShowAddModal(false); setForm(emptyForm); setEditingId(null); setSearchResults([]); }}>{t("common.cancel")}</button>
+              <button type="submit" className="btn-primary">{editingId ? t("history.saveChanges") : t("common.save")}</button>
             </div>
           </form>
         </Modal>
@@ -943,41 +948,41 @@ export default function StocksPage() {
 
       {/* ── Alerts modal ── */}
       {showAlertsModal && (
-        <Modal title="🔔 Price Alerty" onClose={() => setShowAlertsModal(false)}>
+        <Modal title={`🔔 ${t("stocks.priceAlerts")}`} onClose={() => setShowAlertsModal(false)}>
           <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
             <form onSubmit={handleAddAlert} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              <div style={{ fontSize: "0.78rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Nový alert</div>
+              <div style={{ fontSize: "0.78rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>{t("common.newAlert")}</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.5fr", gap: "0.75rem" }}>
                 <div>
-                  <label style={{ fontSize: "0.78rem", color: "var(--muted)", display: "block", marginBottom: "0.3rem" }}>Ticker</label>
+                  <label style={{ fontSize: "0.78rem", color: "var(--muted)", display: "block", marginBottom: "0.3rem" }}>{t("stocks.tickerLabel")}</label>
                   <input value={alertForm.ticker}
                     onChange={(e) => setAlertForm((f) => ({ ...f, ticker: e.target.value.toUpperCase() }))}
                     placeholder="AAPL" required />
                 </div>
                 <div>
-                  <label style={{ fontSize: "0.78rem", color: "var(--muted)", display: "block", marginBottom: "0.3rem" }}>Podmínka</label>
+                  <label style={{ fontSize: "0.78rem", color: "var(--muted)", display: "block", marginBottom: "0.3rem" }}>{t("common.condition")}</label>
                   <select value={alertForm.direction}
                     onChange={(e) => setAlertForm((f) => ({ ...f, direction: e.target.value as "above" | "below" }))}>
-                    <option value="above">↑ Nad</option>
-                    <option value="below">↓ Pod</option>
+                    <option value="above">↑ {t("common.above")}</option>
+                    <option value="below">↓ {t("common.below")}</option>
                   </select>
                 </div>
                 <div>
-                  <label style={{ fontSize: "0.78rem", color: "var(--muted)", display: "block", marginBottom: "0.3rem" }}>Hranice (CZK)</label>
+                  <label style={{ fontSize: "0.78rem", color: "var(--muted)", display: "block", marginBottom: "0.3rem" }}>{t("common.thresholdCzk")}</label>
                   <input type="number" value={alertForm.threshold}
                     onChange={(e) => setAlertForm((f) => ({ ...f, threshold: e.target.value }))}
                     placeholder="3 500" required step="any" min="0" />
                 </div>
               </div>
               <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                <button type="submit" className="btn-primary" style={{ fontSize: "0.82rem" }}>+ Přidat alert</button>
+                <button type="submit" className="btn-primary" style={{ fontSize: "0.82rem" }}>+ {t("common.addAlert")}</button>
               </div>
             </form>
 
             <div style={{ borderTop: "1px solid var(--card-border)" }} />
 
             {alerts.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "1rem", color: "var(--muted)", fontSize: "0.85rem" }}>Žádné alerty</div>
+              <div style={{ textAlign: "center", padding: "1rem", color: "var(--muted)", fontSize: "0.85rem" }}>{t("common.noAlerts")}</div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                 <div style={{ fontSize: "0.78rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Aktivní alerty</div>

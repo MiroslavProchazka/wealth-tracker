@@ -1,3 +1,7 @@
+"use client";
+
+import { useI18n } from "@/components/i18n/I18nProvider";
+
 interface FormFieldProps {
   label: string;
   name: string;
@@ -16,6 +20,8 @@ export default function FormField({
   label, name, type = "text", value, onChange, placeholder,
   required, step, min, options, rows,
 }: FormFieldProps) {
+  const { t } = useI18n();
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0" }}>
       <label htmlFor={name}>{label}</label>
@@ -23,7 +29,7 @@ export default function FormField({
         <div style={{ position: "relative" }}>
           <select id={name} name={name} value={value} onChange={onChange} required={required}
             style={{ paddingRight: "2rem" }}>
-            <option value="">Select…</option>
+            <option value="">{t("common.select")}</option>
             {options.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}

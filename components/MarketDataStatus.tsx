@@ -1,3 +1,5 @@
+import { useI18n } from "@/components/i18n/I18nProvider";
+
 interface MarketSourceStatus {
   label: string;
   loading: boolean;
@@ -14,15 +16,21 @@ interface MarketMetaItem {
 
 type SourceTone = "ok" | "warning" | "error" | "loading" | "neutral";
 
-function formatFreshness(timestamp: string | null): string {
-  if (!timestamp) return "No successful refresh yet";
+function formatFreshness(
+  timestamp: string | null,
+  localeTag: string,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+): string {
+  if (!timestamp) return t("marketStatus.never");
   const diffMs = Date.now() - new Date(timestamp).getTime();
   const minutes = Math.max(0, Math.round(diffMs / 60000));
-  if (minutes < 1) return "Updated just now";
-  if (minutes < 60) return `Updated ${minutes} min ago`;
+  if (minutes < 1) return t("marketStatus.justNow");
+  if (minutes < 60) return t("marketStatus.minutesAgo", { count: minutes });
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `Updated ${hours} h ago`;
-  return `Updated ${new Date(timestamp).toLocaleString("cs-CZ")}`;
+  if (hours < 24) return t("marketStatus.hoursAgo", { count: hours });
+  return t("marketStatus.updatedAt", {
+    value: new Date(timestamp).toLocaleString(localeTag),
+  });
 }
 
 function getSourceTone(source: MarketSourceStatus): SourceTone {
@@ -32,11 +40,23 @@ function getSourceTone(source: MarketSourceStatus): SourceTone {
   return "ok";
 }
 
-function describeSource(source: MarketSourceStatus): string {
-  if (source.loading) return "Refreshing…";
-  if (source.error) return `Unavailable. ${formatFreshness(source.fetchedAt)}`;
-  if (source.stale) return `Cached. ${formatFreshness(source.fetchedAt)}`;
-  return formatFreshness(source.fetchedAt);
+function describeSource(
+  source: MarketSourceStatus,
+  localeTag: string,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+): string {
+  if (source.loading) return t("marketStatus.refreshing");
+  if (source.error) {
+    return t("marketStatus.unavailable", {
+      value: formatFreshness(source.fetchedAt, localeTag, t),
+    });
+  }
+  if (source.stale) {
+    return t("marketStatus.cached", {
+      value: formatFreshness(source.fetchedAt, localeTag, t),
+    });
+  }
+  return formatFreshness(source.fetchedAt, localeTag, t);
 }
 
 export default function MarketDataStatus({
@@ -46,6 +66,7 @@ export default function MarketDataStatus({
   sources: MarketSourceStatus[];
   metaItems?: MarketMetaItem[];
 }) {
+  const { localeTag, t } = useI18n();
   const relevantSources = sources.filter(
     (source) => source.loading || source.error || source.fetchedAt,
   );
@@ -57,12 +78,12 @@ export default function MarketDataStatus({
   const isLoading = relevantSources.some((source) => source.loading);
 
   const summary = hasError
-    ? "Market data is partially unavailable"
+    ? t("marketStatus.partial")
     : hasStale
-      ? "Showing cached market data"
+      ? t("marketStatus.showingCached")
       : isLoading
-        ? "Refreshing market data"
-        : "Market data is up to date";
+        ? t("marketStatus.refreshingMarket")
+        : t("marketStatus.upToDate");
 
   const summaryTone: SourceTone = hasError
     ? "error"
@@ -150,7 +171,7 @@ export default function MarketDataStatus({
         <span style={{ color: "var(--foreground)" }}>{summary}</span>
         {isLoading && !hasError && (
           <span style={{ color: "var(--muted)", fontWeight: 500 }}>
-            New prices are still loading
+            {t("marketStatus.loadingNewPrices")}
           </span>
         )}
       </div>
@@ -201,8 +222,8 @@ export default function MarketDataStatus({
         {relevantSources.map((source) => {
           const tone = getSourceTone(source);
           const title = source.error
-            ? `${source.label}: Live fetch failed (${source.error}). ${formatFreshness(source.fetchedAt)}`
-            : `${source.label}: ${describeSource(source)}`;
+            ? `${source.label}: ${source.error}. ${formatFreshness(source.fetchedAt, localeTag, t)}`
+            : `${source.label}: ${describeSource(source, localeTag, t)}`;
 
           return (
             <div
@@ -231,7 +252,7 @@ export default function MarketDataStatus({
                 }}
               />
               <span style={{ color: "var(--foreground)" }}>{source.label}</span>
-              <span style={{ color: "inherit" }}>{describeSource(source)}</span>
+              <span style={{ color: "inherit" }}>{describeSource(source, localeTag, t)}</span>
             </div>
           );
         })}

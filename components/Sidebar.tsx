@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React from "react";
+import { useI18n } from "@/components/i18n/I18nProvider";
 
 /* ── Inline SVG icons (16×16, stroke-based) ─────────────────── */
 const Icons = {
@@ -59,18 +60,18 @@ const Icons = {
   ),
 };
 
-const NAV_ITEMS = [
-  { href: "/",            label: "Dashboard",    icon: Icons.dashboard   },
-  { href: "/crypto",      label: "Crypto",       icon: Icons.crypto      },
-  { href: "/stocks",      label: "Stocks",       icon: Icons.stocks      },
-  { href: "/property",    label: "Property",     icon: Icons.property    },
-  { href: "/savings",     label: "Savings",      icon: Icons.savings     },
-  { href: "/history",     label: "History",      icon: Icons.history     },
-  { href: "/settings",    label: "Account",      icon: Icons.settings    },
-];
-
 export default function Sidebar() {
   const pathname = usePathname();
+  const { t } = useI18n();
+  const navItems = [
+    { href: "/", label: t("sidebar.dashboard"), icon: Icons.dashboard },
+    { href: "/crypto", label: t("sidebar.crypto"), icon: Icons.crypto },
+    { href: "/stocks", label: t("sidebar.stocks"), icon: Icons.stocks },
+    { href: "/property", label: t("sidebar.property"), icon: Icons.property },
+    { href: "/savings", label: t("sidebar.savings"), icon: Icons.savings },
+    { href: "/history", label: t("sidebar.history"), icon: Icons.history },
+    { href: "/settings", label: t("sidebar.account"), icon: Icons.settings },
+  ];
 
   return (
     <React.Fragment>
@@ -119,7 +120,7 @@ export default function Sidebar() {
               WealthTracker
             </div>
             <div style={{ fontSize: "0.65rem", color: "var(--text-3)", marginTop: "1px", letterSpacing: "0.03em" }}>
-              Personal Finance
+              {t("sidebar.brandSub")}
             </div>
           </div>
         </div>
@@ -127,7 +128,7 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav style={{ padding: "1rem 0.75rem", display: "flex", flexDirection: "column", gap: "2px", flex: 1 }}>
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const active = pathname === item.href;
           return (
             <Link
@@ -200,7 +201,7 @@ export default function Sidebar() {
             boxShadow: "0 0 6px var(--green)",
           }} />
           <span style={{ fontSize: "0.7rem", color: "var(--green)", fontWeight: 500, letterSpacing: "0.02em" }}>
-            Synced via Evolu
+            {t("sidebar.synced")}
           </span>
         </div>
       </div>
@@ -208,7 +209,7 @@ export default function Sidebar() {
 
     {/* ── Mobile bottom navigation ─────────────────────────── */}
     <nav className="mobile-nav">
-      {NAV_ITEMS.map((item) => {
+      {navItems.map((item) => {
         const active = pathname === item.href;
         return (
           <Link
