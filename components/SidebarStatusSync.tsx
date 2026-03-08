@@ -143,36 +143,40 @@ export default function SidebarStatusSync() {
         value: evoluReady ? "OK" : t("dashboard.offline"),
         tone: evoluReady ? ("ok" as const) : ("error" as const),
       },
-      ...(cryptos.length > 0
-        ? [
-            {
-              label: t("dashboard.cryptoPrices"),
-              value: formatCompactMarketStatus(cryptoStatus, localeTag, t),
-              tone: cryptoStatus.error
-                ? ("error" as const)
-                : cryptoStatus.stale
-                  ? ("warning" as const)
-                  : cryptoStatus.loading
-                    ? ("loading" as const)
-                    : ("ok" as const),
-            },
-          ]
-        : []),
-      ...(stocks.length > 0
-        ? [
-            {
-              label: t("dashboard.stockPrices"),
-              value: formatCompactMarketStatus(stockStatus, localeTag, t),
-              tone: stockStatus.error
-                ? ("error" as const)
-                : stockStatus.stale
-                  ? ("warning" as const)
-                  : stockStatus.loading
-                    ? ("loading" as const)
-                    : ("ok" as const),
-            },
-          ]
-        : []),
+      {
+        label: t("dashboard.cryptoPrices"),
+        value:
+          cryptos.length > 0
+            ? formatCompactMarketStatus(cryptoStatus, localeTag, t)
+            : t("marketStatus.compactNever"),
+        tone:
+          cryptos.length === 0
+            ? ("neutral" as const)
+            : cryptoStatus.error
+              ? ("error" as const)
+              : cryptoStatus.stale
+                ? ("warning" as const)
+                : cryptoStatus.loading
+                  ? ("loading" as const)
+                  : ("ok" as const),
+      },
+      {
+        label: t("dashboard.stockPrices"),
+        value:
+          stocks.length > 0
+            ? formatCompactMarketStatus(stockStatus, localeTag, t)
+            : t("marketStatus.compactNever"),
+        tone:
+          stocks.length === 0
+            ? ("neutral" as const)
+            : stockStatus.error
+              ? ("error" as const)
+              : stockStatus.stale
+                ? ("warning" as const)
+                : stockStatus.loading
+                  ? ("loading" as const)
+                  : ("ok" as const),
+      },
     ],
     [cryptoStatus, cryptos.length, evoluReady, localeTag, stockStatus, stocks.length, t, todayKey],
   );
