@@ -20,10 +20,19 @@ import {
   DEFAULT_ALLOCATION_TARGETS,
   DEFAULT_SNAPSHOT_AUTOMATION_SETTINGS,
 } from "@/lib/portfolio";
+import { useI18n } from "@/components/i18n/I18nProvider";
 
 // Inner component — loads appOwner async to avoid SSR suspend (use() hangs in Node.js)
 function SettingsContent() {
   const evolu = useEvolu();
+  const { t } = useI18n();
+  const assetClassLabels: Record<string, string> = {
+    Property: t("dashboard.assetClass_property"),
+    Savings: t("dashboard.assetClass_savings"),
+    Receivables: t("dashboard.assetClass_receivables"),
+    Stocks: t("dashboard.assetClass_stocks"),
+    Crypto: t("dashboard.assetClass_crypto"),
+  };
   const [mnemonic, setMnemonic] = useState("");
 
   useEffect(() => {
@@ -211,7 +220,7 @@ function SettingsContent() {
   async function handleGenerateNew() {
     if (
       !confirm(
-        "Generate a new seed phrase? This will replace your current account. All unsynced data may be lost."
+        t("settings.generateConfirm")
       )
     )
       return;
@@ -223,22 +232,22 @@ function SettingsContent() {
   async function handleRestore() {
     const trimmed = restoreInput.trim();
     if (!trimmed) {
-      setRestoreError("Seed phrase is required.");
+      setRestoreError(t("settings.seedRequired"));
       return;
     }
     if (!bip39.validateMnemonic(trimmed)) {
-      setRestoreError("Invalid seed phrase. Please check and try again.");
+      setRestoreError(t("settings.seedInvalid"));
       return;
     }
     if (trimmed === mnemonic) {
-      setRestoreError("This seed phrase is already active.");
+      setRestoreError(t("settings.seedAlreadyActive"));
       return;
     }
     setRestoring(true);
     try {
       await evolu.restoreAppOwner(trimmed as Evolu.Mnemonic);
     } catch {
-      setRestoreError("Failed to restore. Please try again.");
+      setRestoreError(t("settings.restoreFailed"));
     } finally {
       setRestoring(false);
     }
@@ -247,7 +256,7 @@ function SettingsContent() {
   function handleSaveRelay() {
     const trimmed = relayUrl.trim();
     if (!trimmed.startsWith("ws://") && !trimmed.startsWith("wss://")) {
-      alert("Relay URL must start with ws:// or wss://");
+      alert(t("settings.relayUrlInvalid"));
       return;
     }
     setReconnecting(true);
@@ -261,10 +270,10 @@ function SettingsContent() {
 
   const relayDot =
     relayStatus === null
-      ? { color: "#f59e0b", label: "Connecting…" }
+      ? { color: "#f59e0b", label: t("settings.connecting") }
       : relayStatus
-        ? { color: "#10b981", label: "Connected" }
-        : { color: "#ef4444", label: "Disconnected" };
+        ? { color: "#10b981", label: t("settings.connected") }
+        : { color: "#ef4444", label: t("settings.disconnected") };
 
   const allocationRows = ASSET_CLASSES.map((assetClass) => {
     const current = allocationTargets.find(
@@ -329,7 +338,7 @@ function SettingsContent() {
     link.download = fileName;
     link.click();
     URL.revokeObjectURL(url);
-    setBackupStatus(`Backup exported: ${fileName}`);
+    setBackupStatus(t("settings.backupExported", { fileName }));
   }
 
   async function handleImportBackup(
@@ -345,7 +354,7 @@ function SettingsContent() {
       const { payload, issues } = parseBackupPayload(text);
 
       if (!payload) {
-        setBackupStatus(issues[0] ?? "Backup import failed.");
+        setBackupStatus(issues[0] ?? t("settings.backupImportFailed"));
         return;
       }
 
@@ -355,9 +364,12 @@ function SettingsContent() {
 
       if (
         !confirm(
-          `Import backup and replace current local data?\n\n${summary}${
-            issues.length ? `\n\nWarnings:\n- ${issues.join("\n- ")}` : ""
-          }`,
+          t("settings.importConfirm", {
+            summary,
+            warnings: issues.length
+              ? t("settings.warningsPrefix", { issues: issues.join("\n- ") })
+              : "",
+          }),
         )
       ) {
         return;
@@ -392,15 +404,15 @@ function SettingsContent() {
 
       setBackupStatus(
         issues.length
-          ? `Backup imported with warnings. ${issues.join(" ")} Reloading app…`
-          : "Backup imported successfully. Reloading app…",
+          ? t("settings.backupImportedWarnings", { issues: issues.join(" ") })
+          : t("settings.backupImported"),
       );
 
       setTimeout(() => {
         evolu.reloadApp();
       }, 400);
     } catch {
-      setBackupStatus("Backup import failed.");
+      setBackupStatus(t("settings.backupImportFailed"));
     } finally {
       setImporting(false);
       event.target.value = "";
@@ -456,7 +468,7 @@ function SettingsContent() {
         } as never,
       );
     }
-    setAllocationStatus("Target allocations updated.");
+    setAllocationStatus(t("settings.allocationUpdated"));
     setTimeout(() => setAllocationStatus(null), 2500);
   }
 
@@ -464,21 +476,20 @@ function SettingsContent() {
     <div style={{ maxWidth: "640px" }}>
       <div style={{ marginBottom: "2rem" }}>
         <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 700 }}>
-          Account
+          {t("settings.title")}
         </h1>
         <p style={{ color: "var(--muted)", margin: "0.35rem 0 0", fontSize: "0.875rem" }}>
-          Seed phrase · Sync relay · Cross-device access
+          {t("settings.subtitle")}
         </p>
       </div>
 
       {/* Seed Phrase */}
       <div className="card" style={{ marginBottom: "1.5rem" }}>
         <h2 style={{ margin: "0 0 0.5rem", fontSize: "1rem", fontWeight: 700 }}>
-          🔑 Your Seed Phrase
+          🔑 {t("settings.seedTitle")}
         </h2>
         <p style={{ color: "var(--muted)", fontSize: "0.8rem", margin: "0 0 1rem" }}>
-          This is your account identity. Keep it secret and safe. Use it to
-          restore access on another device.
+          {t("settings.seedDescription")}
         </p>
 
         <div
@@ -501,10 +512,10 @@ function SettingsContent() {
 
         <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
           <button className="btn-primary" onClick={handleCopy}>
-            {copied ? "Copied!" : "Copy Seed Phrase"}
+            {copied ? t("settings.copied") : t("settings.copySeed")}
           </button>
           <button className="btn-ghost" onClick={handleGenerateNew}>
-            Generate New Seed
+            {t("settings.generateSeed")}
           </button>
           <button
             className="btn-ghost"
@@ -514,7 +525,7 @@ function SettingsContent() {
               setRestoreInput("");
             }}
           >
-            {showRestore ? "Cancel Restore" : "Restore from Seed"}
+            {showRestore ? t("settings.cancelRestore") : t("settings.restoreFromSeed")}
           </button>
         </div>
 
@@ -529,7 +540,7 @@ function SettingsContent() {
                 fontWeight: 600,
               }}
             >
-              Enter your 12 or 24-word seed phrase
+              {t("settings.enterSeed")}
             </label>
             <textarea
               value={restoreInput}
@@ -538,7 +549,7 @@ function SettingsContent() {
                 setRestoreError("");
               }}
               rows={3}
-              placeholder="word1 word2 word3 …"
+              placeholder={t("settings.seedPlaceholder")}
               style={{
                 width: "100%",
                 background: "var(--card)",
@@ -569,7 +580,7 @@ function SettingsContent() {
               disabled={restoring}
               style={{ marginTop: "0.75rem" }}
             >
-              {restoring ? "Restoring…" : "Restore Account"}
+              {restoring ? t("common.saving") : t("settings.restoreAccount")}
             </button>
           </div>
         )}
@@ -586,7 +597,7 @@ function SettingsContent() {
           }}
         >
           <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>
-            ☁️ Sync Relay
+            ☁️ {t("settings.syncTitle")}
           </h2>
           <span
             style={{
@@ -594,7 +605,7 @@ function SettingsContent() {
               alignItems: "center",
               gap: "0.35rem",
               fontSize: "0.75rem",
-              color: relayDot.label === "Connected" ? "var(--green)" : relayDot.color,
+              color: relayStatus ? "var(--green)" : relayDot.color,
             }}
           >
             <span
@@ -610,8 +621,7 @@ function SettingsContent() {
           </span>
         </div>
         <p style={{ color: "var(--muted)", fontSize: "0.8rem", margin: "0 0 1rem" }}>
-          Data syncs end-to-end encrypted via a WebSocket relay. The default
-          public relay is free. You can self-host your own.
+          {t("settings.syncDescription")}
         </p>
 
         <label
@@ -623,7 +633,7 @@ function SettingsContent() {
             fontWeight: 600,
           }}
         >
-          Relay URL
+          {t("settings.relayUrl")}
         </label>
         <div style={{ display: "flex", gap: "0.75rem" }}>
           <input
@@ -646,7 +656,7 @@ function SettingsContent() {
             onClick={handleSaveRelay}
             disabled={reconnecting}
           >
-            {reconnecting ? "Saving…" : "Save"}
+            {reconnecting ? t("common.saving") : t("common.save")}
           </button>
         </div>
 
@@ -661,20 +671,16 @@ function SettingsContent() {
             color: "var(--muted)",
           }}
         >
-          💡 How it works: Your data is stored locally in the browser
-          (IndexedDB). The relay server only stores encrypted chunks — it cannot
-          read your data. Open this app with the same seed phrase on another
-          device to sync.
+          💡 {t("settings.syncHint")}
         </div>
       </div>
 
       <div className="card">
         <h2 style={{ margin: "0 0 0.5rem", fontSize: "1rem", fontWeight: 700 }}>
-          💾 Backup & Restore
+          💾 {t("settings.backupTitle")}
         </h2>
         <p style={{ color: "var(--muted)", fontSize: "0.8rem", margin: "0 0 1rem" }}>
-          Export your local Evolu data to JSON or import a previous backup.
-          Import replaces the current local dataset and then reloads the app.
+          {t("settings.backupDescription")}
         </p>
 
         <div
@@ -688,19 +694,19 @@ function SettingsContent() {
             color: "var(--muted)",
           }}
         >
-          Active records available for export: {totalExportableRecords}
+          {t("settings.exportableRecords", { count: totalExportableRecords })}
         </div>
 
         <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
           <button className="btn-primary" onClick={handleExportBackup}>
-            Export Backup
+            {t("settings.exportBackup")}
           </button>
           <button
             className="btn-ghost"
             onClick={() => fileInputRef.current?.click()}
             disabled={importing}
           >
-            {importing ? "Importing…" : "Import Backup"}
+            {importing ? t("settings.importing") : t("settings.importBackup")}
           </button>
         </div>
 
@@ -731,10 +737,10 @@ function SettingsContent() {
 
       <div className="card" style={{ marginTop: "1.5rem", marginBottom: "1.5rem" }}>
         <h2 style={{ margin: "0 0 0.5rem", fontSize: "1rem", fontWeight: 700 }}>
-          📸 Snapshot Automation
+          📸 {t("settings.snapshotAutomation")}
         </h2>
         <p style={{ color: "var(--muted)", fontSize: "0.8rem", margin: "0 0 1rem" }}>
-          Create one snapshot per calendar day when the app opens on a new day.
+          {t("settings.snapshotAutomationDescription")}
         </p>
         <label
           style={{
@@ -751,17 +757,16 @@ function SettingsContent() {
             onChange={(e) => handleAutomationToggle(e.target.checked)}
             style={{ width: "auto" }}
           />
-          Enable daily snapshot on app open / day change
+          {t("settings.snapshotAutomationToggle")}
         </label>
       </div>
 
       <div className="card" style={{ marginBottom: "1.5rem" }}>
         <h2 style={{ margin: "0 0 0.5rem", fontSize: "1rem", fontWeight: 700 }}>
-          🎯 Target Allocation
+          🎯 {t("settings.targetAllocation")}
         </h2>
         <p style={{ color: "var(--muted)", fontSize: "0.8rem", margin: "0 0 1rem" }}>
-          Set your target weights by asset class. Dashboard compares these targets
-          against current portfolio composition.
+          {t("settings.targetAllocationDescription")}
         </p>
 
         <div style={{ display: "grid", gap: "0.75rem" }}>
@@ -775,7 +780,7 @@ function SettingsContent() {
                 alignItems: "center",
               }}
             >
-              <div style={{ fontSize: "0.85rem", fontWeight: 600 }}>{row.assetClass}</div>
+              <div style={{ fontSize: "0.85rem", fontWeight: 600 }}>{assetClassLabels[row.assetClass] ?? row.assetClass}</div>
               <input
                 type="number"
                 min="0"
@@ -806,7 +811,7 @@ function SettingsContent() {
                 : "var(--yellow)",
           }}
         >
-          Total target weight: {totalTargetPercent.toFixed(1)}%
+          {t("settings.totalTargetWeight", { value: totalTargetPercent.toFixed(1) })}
         </div>
         {allocationStatus && (
           <div style={{ marginTop: "0.6rem", fontSize: "0.78rem", color: "var(--muted)" }}>
