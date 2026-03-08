@@ -6,6 +6,7 @@ import { useEvolu } from "@/lib/evolu";
 import Modal from "@/components/Modal";
 import FormField from "@/components/FormField";
 import { formatCurrency } from "@/lib/currencies";
+import { useI18n } from "@/components/i18n/I18nProvider";
 
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
   PENDING:  { label: "Pending",  cls: "badge badge-yellow" },
@@ -17,6 +18,7 @@ const EMPTY_FORM = { description: "", client: "", amount: "", currency: "CZK", d
 
 export default function ReceivablesPage() {
   const evolu = useEvolu();
+  const { t } = useI18n();
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
@@ -76,7 +78,7 @@ export default function ReceivablesPage() {
   }
 
   function handleDelete(id: string) {
-    if (!confirm("Delete this receivable?")) return;
+    if (!confirm(t("receivables.deleteConfirm"))) return;
     evolu.update("receivable", { id: id as never, deleted: Evolu.sqliteTrue } as never);
   }
 
@@ -113,18 +115,18 @@ export default function ReceivablesPage() {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 700 }}>Receivables</h1>
-          <p style={{ color: "var(--muted)", margin: "0.35rem 0 0", fontSize: "0.875rem" }}>Un-invoiced work, outstanding invoices, money owed to you</p>
+          <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 700 }}>{t("receivables.title")}</h1>
+          <p style={{ color: "var(--muted)", margin: "0.35rem 0 0", fontSize: "0.875rem" }}>{t("receivables.subtitle")}</p>
         </div>
-        <button className="btn-primary" onClick={() => setShowModal(true)}>+ Add</button>
+        <button className="btn-primary" onClick={() => setShowModal(true)}>+ {t("receivables.add")}</button>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
         {[
-          { label: "Outstanding", value: formatCurrency(total, "CZK"), color: "var(--yellow)" },
-          { label: "Total (incl. paid)", value: formatCurrency(totalAll, "CZK"), color: "var(--muted)" },
-          { label: "Items Outstanding", value: String(items.filter((i) => String(i.status) !== "PAID").length), color: "var(--accent)" },
-          { label: "Overdue", value: String(items.filter((i) => String(i.status) === "OVERDUE").length), color: "var(--red)" },
+          { label: t("receivables.outstanding"), value: formatCurrency(total, "CZK"), color: "var(--yellow)" },
+          { label: t("receivables.totalIncludingPaid"), value: formatCurrency(totalAll, "CZK"), color: "var(--muted)" },
+          { label: t("receivables.itemsOutstanding"), value: String(items.filter((i) => String(i.status) !== "PAID").length), color: "var(--accent)" },
+          { label: t("receivables.overdue"), value: String(items.filter((i) => String(i.status) === "OVERDUE").length), color: "var(--red)" },
         ].map((s) => (
           <div key={s.label} className="card">
             <div style={{ fontSize: "0.7rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>{s.label}</div>
@@ -135,14 +137,14 @@ export default function ReceivablesPage() {
 
       <div className="card" style={{ marginBottom: "1.5rem" }}>
         <div style={{ fontSize: "0.8rem", fontWeight: 700, marginBottom: "0.9rem" }}>
-          Aging Summary
+          {t("receivables.agingSummary")}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "0.85rem" }}>
           {[
-            { label: "Current", value: agingBuckets.current, color: "#10b981" },
-            { label: "1-30 days overdue", value: agingBuckets.days1to30, color: "#f59e0b" },
-            { label: "31-60 days overdue", value: agingBuckets.days31to60, color: "#f97316" },
-            { label: "61+ days overdue", value: agingBuckets.days61plus, color: "#ef4444" },
+            { label: t("receivables.current"), value: agingBuckets.current, color: "#10b981" },
+            { label: t("receivables.days1to30"), value: agingBuckets.days1to30, color: "#f59e0b" },
+            { label: t("receivables.days31to60"), value: agingBuckets.days31to60, color: "#f97316" },
+            { label: t("receivables.days61plus"), value: agingBuckets.days61plus, color: "#ef4444" },
           ].map((bucket) => (
             <div
               key={bucket.label}
@@ -166,10 +168,10 @@ export default function ReceivablesPage() {
 
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
         {items.length === 0 ? (
-          <p style={{ padding: "2rem", color: "var(--muted)", textAlign: "center" }}>No receivables yet. Track un-invoiced work or outstanding invoices.</p>
+          <p style={{ padding: "2rem", color: "var(--muted)", textAlign: "center" }}>{t("receivables.empty")}</p>
         ) : (
           <table>
-            <thead><tr><th>Description</th><th>Client</th><th>Amount</th><th>Due Date</th><th>Status</th><th>Actions</th></tr></thead>
+            <thead><tr><th>{t("receivables.description")}</th><th>{t("receivables.client")}</th><th>{t("common.amount")}</th><th>{t("receivables.dueDate")}</th><th>{t("receivables.status")}</th><th>{t("common.actions")}</th></tr></thead>
             <tbody>
               {items.map((item) => {
                 const statusStr = String(item.status);
@@ -191,10 +193,10 @@ export default function ReceivablesPage() {
                     <td>
                       <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
                         {statusStr !== "PAID" && (
-                          <button onClick={() => markPaid(item.id as string)} style={{ background: "rgba(16,185,129,0.15)", color: "var(--green)", border: "1px solid var(--green)", borderRadius: "6px", padding: "0.3rem 0.6rem", cursor: "pointer", fontSize: "0.7rem", fontWeight: 600 }}>Mark Paid</button>
+                        <button onClick={() => markPaid(item.id as string)} style={{ background: "rgba(16,185,129,0.15)", color: "var(--green)", border: "1px solid var(--green)", borderRadius: "6px", padding: "0.3rem 0.6rem", cursor: "pointer", fontSize: "0.7rem", fontWeight: 600 }}>{t("receivables.markPaid")}</button>
                         )}
-                        <button className="btn-ghost" onClick={() => handleStartEdit(item)} style={{ fontSize: "0.7rem", padding: "0.3rem 0.6rem" }}>✏️ Upravit</button>
-                        <button className="btn-danger" onClick={() => handleDelete(item.id as string)}>Delete</button>
+                        <button className="btn-ghost" onClick={() => handleStartEdit(item)} style={{ fontSize: "0.7rem", padding: "0.3rem 0.6rem" }}>✏️ {t("common.edit")}</button>
+                        <button className="btn-danger" onClick={() => handleDelete(item.id as string)}>{t("common.delete")}</button>
                       </div>
                     </td>
                   </tr>
@@ -206,23 +208,23 @@ export default function ReceivablesPage() {
       </div>
 
       {showModal && (
-        <Modal title={editingId ? "Upravit pohledávku" : "Add Receivable"} onClose={() => { setShowModal(false); setForm({ ...EMPTY_FORM }); setEditingId(null); }}>
+        <Modal title={editingId ? t("receivables.edit") : t("receivables.addReceivable")} onClose={() => { setShowModal(false); setForm({ ...EMPTY_FORM }); setEditingId(null); }}>
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-            <FormField label="Description *" name="description" value={form.description} onChange={handleChange} placeholder="e.g. Website redesign — March" required />
-            <FormField label="Client" name="client" value={form.client} onChange={handleChange} placeholder="e.g. Acme s.r.o." />
+            <FormField label={t("receivables.descriptionField")} name="description" value={form.description} onChange={handleChange} placeholder="e.g. Website redesign — March" required />
+            <FormField label={t("receivables.client")} name="client" value={form.client} onChange={handleChange} placeholder="e.g. Acme s.r.o." />
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-              <FormField label="Amount *" name="amount" type="number" value={form.amount} onChange={handleChange} placeholder="0" step="0.01" required />
-              <FormField label="Currency" name="currency" value={form.currency} onChange={handleChange} options={[{ value: "CZK", label: "CZK" }, { value: "EUR", label: "EUR" }, { value: "USD", label: "USD" }]} />
+              <FormField label={`${t("common.amount")} *`} name="amount" type="number" value={form.amount} onChange={handleChange} placeholder="0" step="0.01" required />
+              <FormField label={t("common.currency")} name="currency" value={form.currency} onChange={handleChange} options={[{ value: "CZK", label: "CZK" }, { value: "EUR", label: "EUR" }, { value: "USD", label: "USD" }]} />
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-              <FormField label="Due Date" name="dueDate" type="date" value={form.dueDate} onChange={handleChange} />
-              <FormField label="Status" name="status" value={form.status} onChange={handleChange} options={[{ value: "PENDING", label: "Pending (un-invoiced)" }, { value: "INVOICED", label: "Invoiced" }, { value: "OVERDUE", label: "Overdue" }, { value: "PAID", label: "Paid" }]} />
+              <FormField label={t("receivables.dueDate")} name="dueDate" type="date" value={form.dueDate} onChange={handleChange} />
+              <FormField label={t("receivables.status")} name="status" value={form.status} onChange={handleChange} options={[{ value: "PENDING", label: "Pending (un-invoiced)" }, { value: "INVOICED", label: "Invoiced" }, { value: "OVERDUE", label: "Overdue" }, { value: "PAID", label: "Paid" }]} />
             </div>
-            <FormField label="Tags" name="tags" value={form.tags} onChange={handleChange} placeholder="client-a, monthly, overdue-risk" />
-            <FormField label="Notes" name="notes" type="textarea" value={form.notes} onChange={handleChange} placeholder="Additional details…" />
+            <FormField label={t("common.tags")} name="tags" value={form.tags} onChange={handleChange} placeholder="client-a, monthly, overdue-risk" />
+            <FormField label={t("common.notes")} name="notes" type="textarea" value={form.notes} onChange={handleChange} placeholder={t("common.optional")} />
             <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", marginTop: "0.5rem" }}>
-              <button type="button" className="btn-ghost" onClick={() => { setShowModal(false); setForm({ ...EMPTY_FORM }); setEditingId(null); }}>Cancel</button>
-              <button type="submit" className="btn-primary" disabled={saving}>{saving ? "Saving…" : editingId ? "Uložit změny" : "Add Receivable"}</button>
+              <button type="button" className="btn-ghost" onClick={() => { setShowModal(false); setForm({ ...EMPTY_FORM }); setEditingId(null); }}>{t("common.cancel")}</button>
+              <button type="submit" className="btn-primary" disabled={saving}>{saving ? t("common.saving") : editingId ? t("history.saveChanges") : t("receivables.addReceivable")}</button>
             </div>
           </form>
         </Modal>

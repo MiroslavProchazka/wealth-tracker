@@ -6,6 +6,7 @@ import { useEvolu } from "@/lib/evolu";
 import Modal from "@/components/Modal";
 import FormField from "@/components/FormField";
 import { formatCurrency, formatPercent } from "@/lib/currencies";
+import { useI18n } from "@/components/i18n/I18nProvider";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid,
@@ -116,6 +117,7 @@ const ALLOCATION_COLORS = [
 
 export default function CryptoPage() {
   const evolu = useEvolu();
+  const { localeTag, t } = useI18n();
 
   // Form state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -314,7 +316,7 @@ export default function CryptoPage() {
   }
 
   function handleDelete(id: string) {
-    if (!confirm("Smazat tento holding?")) return;
+    if (!confirm(t("crypto.deleteConfirm"))) return;
     evolu.update("cryptoHolding", { id: id as never, deleted: Evolu.sqliteTrue } as never);
   }
 
@@ -389,11 +391,12 @@ export default function CryptoPage() {
         }}>
           <span>
             🔔 <strong>{alert.symbol}</strong> je{" "}
-            {alert.direction === "above" ? "nad" : "pod"} hranicí{" "}
+            {alert.direction === "above" ? t("crypto.directionAbove") : t("crypto.directionBelow")}{" "}
+            hranicí{" "}
             <strong>{formatCurrency(alert.threshold, "CZK")}</strong>
             {prices[alert.symbol] && (
               <span style={{ color: "var(--muted)", marginLeft: "0.5rem" }}>
-                · nyní {formatCurrency(prices[alert.symbol].czk, "CZK")}
+                · {t("common.now")} {formatCurrency(prices[alert.symbol].czk, "CZK")}
               </span>
             )}
           </span>
@@ -405,12 +408,14 @@ export default function CryptoPage() {
       {/* ── Header ── */}
       <div className="page-header-row">
         <div>
-          <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 700 }}>Crypto Holdings</h1>
+          <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 700 }}>{t("crypto.title")}</h1>
           <p style={{ color: "var(--muted)", margin: "0.35rem 0 0", fontSize: "0.875rem" }}>
-            Live ceny CoinGecko · refresh každých 10 min
+            {t("crypto.subtitle")}
             {lastUpdated && (
               <span style={{ marginLeft: "0.75rem", opacity: 0.6 }}>
-                · aktualizováno {lastUpdated.toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit" })}
+                · {t("crypto.updatedAt", {
+                  time: lastUpdated.toLocaleTimeString(localeTag, { hour: "2-digit", minute: "2-digit" }),
+                })}
               </span>
             )}
           </p>
@@ -431,11 +436,11 @@ export default function CryptoPage() {
           </div>
           <button className="btn-ghost" onClick={() => fetchPrices(true)} disabled={pricesLoading}
             style={{ fontSize: "0.8rem", padding: "0.4rem 0.75rem" }}>
-            {pricesLoading ? "⏳" : "↻ Refresh"}
+            {pricesLoading ? "⏳" : `↻ ${t("common.refresh")}`}
           </button>
           <button className="btn-ghost" onClick={() => setShowAlertsModal(true)}
             style={{ fontSize: "0.8rem", padding: "0.4rem 0.75rem", position: "relative" }}>
-            🔔 Alerty
+            🔔 {t("common.alerts")}
             {alerts.length > 0 && (
               <span style={{
                 marginLeft: "0.3rem", background: "var(--accent)", color: "white",
@@ -443,14 +448,14 @@ export default function CryptoPage() {
               }}>{alerts.length}</span>
             )}
           </button>
-          <button className="btn-primary" onClick={() => setShowAddModal(true)}>+ Add Holding</button>
+          <button className="btn-primary" onClick={() => setShowAddModal(true)}>+ {t("common.addHolding")}</button>
         </div>
       </div>
 
       {/* ── Summary cards ── */}
       <div className="stat-grid-4">
         <div className="card" style={{ background: "linear-gradient(135deg, #1a1f2e 0%, #1e2a1e 100%)", borderColor: "rgba(16,185,129,0.3)" }}>
-          <div style={{ fontSize: "0.68rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>Celkem</div>
+          <div style={{ fontSize: "0.68rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>{t("common.total")}</div>
           <div style={{ fontSize: "1.45rem", fontWeight: 800, color: "var(--green)" }}>
             {hasPrices
               ? formatCurrency(displayCurrency === "CZK" ? totalCzk : displayCurrency === "USD" ? totalUsd : totalEur, displayCurrency)
@@ -462,29 +467,29 @@ export default function CryptoPage() {
         </div>
 
         <div className="card">
-          <div style={{ fontSize: "0.68rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>P&L (vs nákup)</div>
+          <div style={{ fontSize: "0.68rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>{t("crypto.pnlVsBuy")}</div>
           {hasPnl ? (
             <div style={{ fontSize: "1.45rem", fontWeight: 800, color: totalPnlCzk >= 0 ? "var(--green)" : "#ef4444" }}>
               {(totalPnlCzk >= 0 ? "+" : "") + formatCurrency(totalPnlCzk, "CZK")}
             </div>
           ) : (
-            <div style={{ fontSize: "0.82rem", color: "var(--muted)", marginTop: "0.4rem" }}>Zadej nákupní cenu</div>
+            <div style={{ fontSize: "0.82rem", color: "var(--muted)", marginTop: "0.4rem" }}>{t("crypto.enterBuyPrice")}</div>
           )}
         </div>
 
         <div className="card">
-          <div style={{ fontSize: "0.68rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>Pozice</div>
+          <div style={{ fontSize: "0.68rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>{t("common.positions")}</div>
           <div style={{ fontSize: "1.45rem", fontWeight: 800 }}>{holdings.length}</div>
         </div>
 
         <div className="card">
-          <div style={{ fontSize: "0.68rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>Status</div>
+          <div style={{ fontSize: "0.68rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>{t("common.status")}</div>
           <div style={{ fontSize: "0.92rem", fontWeight: 600, marginTop: "0.15rem" }}>
-            {pricesLoading && <span style={{ color: "var(--muted)" }}>⏳ Načítám…</span>}
+            {pricesLoading && <span style={{ color: "var(--muted)" }}>⏳ {t("common.loading")}</span>}
             {pricesError && <span style={{ color: "#ef4444", fontSize: "0.75rem" }}>⚠ {pricesError}</span>}
-            {!pricesLoading && !pricesError && hasPrices && <span style={{ color: "var(--green)" }}>✓ Live</span>}
-            {!pricesLoading && !pricesError && !hasPrices && holdings.length > 0 && <span style={{ color: "var(--muted)" }}>Čekám…</span>}
-            {holdings.length === 0 && <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>Žádné holdingy</span>}
+            {!pricesLoading && !pricesError && hasPrices && <span style={{ color: "var(--green)" }}>✓ {t("common.live")}</span>}
+            {!pricesLoading && !pricesError && !hasPrices && holdings.length > 0 && <span style={{ color: "var(--muted)" }}>{t("common.waiting")}</span>}
+            {holdings.length === 0 && <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>{t("common.noHoldings")}</span>}
           </div>
         </div>
       </div>
@@ -492,7 +497,7 @@ export default function CryptoPage() {
       {/* ── Portfolio allocation bar ── */}
       {allocations.length > 0 && (
         <div className="card" style={{ marginBottom: "1.5rem" }}>
-          <div style={{ fontSize: "0.72rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>Alokace portfolia</div>
+          <div style={{ fontSize: "0.72rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>{t("common.portfolioAllocation")}</div>
           <div style={{ display: "flex", height: "10px", borderRadius: "5px", overflow: "hidden", marginBottom: "0.7rem" }}>
             {allocations.map((a) => (
               <div key={a.symbol}
@@ -522,21 +527,21 @@ export default function CryptoPage() {
         {holdings.length === 0 ? (
           <div style={{ padding: "3rem", textAlign: "center", color: "var(--muted)" }}>
             <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>₿</div>
-            <p style={{ margin: 0, fontWeight: 500 }}>Žádné crypto pozice</p>
-            <p style={{ margin: "0.5rem 0 0", fontSize: "0.8rem" }}>Přidej první holding tlačítkem výše</p>
+            <p style={{ margin: 0, fontWeight: 500 }}>{t("crypto.emptyTitle")}</p>
+            <p style={{ margin: "0.5rem 0 0", fontSize: "0.8rem" }}>{t("crypto.emptySubtitle")}</p>
           </div>
         ) : (
           <div className="table-scroll">
           <table>
             <thead>
               <tr>
-                <th>Coin</th>
-                <th style={{ textAlign: "right" }}>Množství</th>
-                <th style={{ textAlign: "right" }}>Nákup / ks (CZK)</th>
-                <th style={{ textAlign: "right" }}>Cena / ks ({displayCurrency})</th>
+                <th>{t("crypto.coin")}</th>
+                <th style={{ textAlign: "right" }}>{t("crypto.amount")}</th>
+                <th style={{ textAlign: "right" }}>{t("crypto.buyPerCoinCzk")}</th>
+                <th style={{ textAlign: "right" }}>{t("crypto.pricePerCoin", { currency: displayCurrency })}</th>
                 <th style={{ textAlign: "right" }}>24h</th>
                 <th style={{ textAlign: "right" }}>P&L (CZK)</th>
-                <th style={{ textAlign: "right" }}>Hodnota ({displayCurrency})</th>
+                <th style={{ textAlign: "right" }}>{t("crypto.value", { currency: displayCurrency })}</th>
                 <th></th>
               </tr>
             </thead>
@@ -558,7 +563,7 @@ export default function CryptoPage() {
                       </div>
                     </td>
                     <td style={{ textAlign: "right", fontFamily: "monospace", fontSize: "0.88rem" }}>
-                      {h.coins.toLocaleString("cs-CZ", { maximumFractionDigits: 8 })}
+                      {h.coins.toLocaleString(localeTag, { maximumFractionDigits: 8 })}
                     </td>
                     <td style={{ textAlign: "right", color: "var(--muted)", fontSize: "0.82rem" }}>
                       {h.buyPricePerCoin !== null ? formatCurrency(h.buyPricePerCoin, "CZK") : <span style={{ opacity: 0.35 }}>—</span>}
@@ -590,10 +595,10 @@ export default function CryptoPage() {
                       <div style={{ display: "flex", gap: "0.4rem" }}>
                         <button
                           onClick={() => { setChartSymbol(h.symbol); setChartDays(30); }}
-                          title="Historický chart"
+                          title={t("common.historicalChart")}
                           style={{ background: "none", border: "1px solid var(--card-border)", borderRadius: "6px", padding: "0.3rem 0.5rem", cursor: "pointer", color: "var(--muted)", fontSize: "0.8rem" }}
                         >📈</button>
-                        <button className="btn-ghost" onClick={() => handleStartEdit(h)} title="Upravit" style={{ padding: "0.3rem 0.5rem", fontSize: "0.8rem" }}>✏️</button>
+                        <button className="btn-ghost" onClick={() => handleStartEdit(h)} title={t("common.edit")} style={{ padding: "0.3rem 0.5rem", fontSize: "0.8rem" }}>✏️</button>
                         <button className="btn-danger" onClick={() => handleDelete(h.id as string)}>✕</button>
                       </div>
                     </td>
@@ -622,7 +627,7 @@ export default function CryptoPage() {
             ))}
           </div>
           {chartLoading ? (
-            <div style={{ textAlign: "center", padding: "3rem", color: "var(--muted)" }}>⏳ Načítám historii…</div>
+            <div style={{ textAlign: "center", padding: "3rem", color: "var(--muted)" }}>⏳ {t("common.loading")}</div>
           ) : chartData.length > 0 ? (
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={chartData} margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
@@ -648,8 +653,8 @@ export default function CryptoPage() {
                 <Tooltip
                   contentStyle={{ background: "#1a1f2e", border: "1px solid #2d3748", borderRadius: "8px", fontSize: "0.82rem" }}
                   labelStyle={{ color: "#64748b" }}
-                  formatter={(v: number | undefined) => [v !== undefined ? formatCurrency(v, displayCurrency) : "—", "Cena"]}
-                  labelFormatter={(label: unknown) => typeof label === "string" ? new Date(label).toLocaleDateString("cs-CZ") : ""}
+                  formatter={(v: number | undefined) => [v !== undefined ? formatCurrency(v, displayCurrency) : "—", t("common.price")]}
+                  labelFormatter={(label: unknown) => typeof label === "string" ? new Date(label).toLocaleDateString(localeTag) : ""}
                 />
                 <Line
                   type="monotone"
@@ -662,40 +667,40 @@ export default function CryptoPage() {
               </LineChart>
             </ResponsiveContainer>
           ) : (
-            <div style={{ textAlign: "center", padding: "3rem", color: "var(--muted)" }}>Žádná historická data</div>
+            <div style={{ textAlign: "center", padding: "3rem", color: "var(--muted)" }}>{t("common.noHistoricalData")}</div>
           )}
         </Modal>
       )}
 
       {/* ── Add / Edit Holding modal ── */}
       {showAddModal && (
-        <Modal title={editingId ? "Upravit Crypto Holding" : "Přidat Crypto Holding"} onClose={() => { setShowAddModal(false); setForm(emptyForm); setEditingId(null); }}>
+        <Modal title={editingId ? t("crypto.editHolding") : t("crypto.addHolding")} onClose={() => { setShowAddModal(false); setForm(emptyForm); setEditingId(null); }}>
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
             <div style={{ position: "relative" }}>
-              <FormField label="Symbol (BTC, ETH…)" name="symbol" value={form.symbol}
+              <FormField label={t("crypto.symbol")} name="symbol" value={form.symbol}
                 onChange={handleFormChange} placeholder="BTC" required />
             </div>
             <div style={{ position: "relative" }}>
-              <FormField label="Název" name="name" value={form.name}
-                onChange={handleFormChange} placeholder={nameLookupLoading ? "Hledám…" : "Bitcoin"} required />
+              <FormField label={t("crypto.name")} name="name" value={form.name}
+                onChange={handleFormChange} placeholder={nameLookupLoading ? t("crypto.searching") : "Bitcoin"} required />
               {nameLookupLoading && (
                 <div style={{ position: "absolute", right: "0.75rem", top: "2rem", color: "var(--muted)", fontSize: "0.75rem" }}>⏳</div>
               )}
             </div>
-            <FormField label="Počet kusů" name="amount" type="number" value={form.amount}
+            <FormField label={t("crypto.pieces")} name="amount" type="number" value={form.amount}
               onChange={handleFormChange} placeholder="0.5" step="any" min="0" required />
-            <FormField label="Průměrná nákupní cena (CZK / ks) — volitelné" name="buyPrice"
+            <FormField label={t("crypto.averageBuyPrice")} name="buyPrice"
               type="number" value={form.buyPrice} onChange={handleFormChange}
               placeholder="2 500 000" step="any" min="0" />
-            <FormField label="Tagy" name="tags" value={form.tags}
+            <FormField label={t("common.tags")} name="tags" value={form.tags}
               onChange={handleFormChange} placeholder="long-term, defi, cold-wallet" />
-            <FormField label="Poznámky" name="notes" type="textarea" value={form.notes}
-              onChange={handleFormChange} placeholder="Nepovinné…" rows={2} />
+            <FormField label={t("common.notes")} name="notes" type="textarea" value={form.notes}
+              onChange={handleFormChange} placeholder={t("common.optional")} rows={2} />
 
             {/* Live preview */}
             {form.symbol && prices[form.symbol.toUpperCase()] && form.amount && parseFloat(form.amount) > 0 && (
               <div style={{ padding: "0.75rem", borderRadius: "8px", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", fontSize: "0.85rem" }}>
-                💡 Aktuální hodnota:{" "}
+                💡 {t("common.currentValue")}:{" "}
                 <strong>{formatCurrency(parseFloat(form.amount) * prices[form.symbol.toUpperCase()].czk, "CZK")}</strong>
                 {form.buyPrice && parseFloat(form.buyPrice) > 0 && (() => {
                   const pnl = parseFloat(form.amount) * prices[form.symbol.toUpperCase()].czk
@@ -710,8 +715,8 @@ export default function CryptoPage() {
             )}
 
             <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", marginTop: "0.5rem" }}>
-              <button type="button" className="btn-ghost" onClick={() => { setShowAddModal(false); setForm(emptyForm); setEditingId(null); }}>Zrušit</button>
-              <button type="submit" className="btn-primary">{editingId ? "Uložit změny" : "Přidat"}</button>
+              <button type="button" className="btn-ghost" onClick={() => { setShowAddModal(false); setForm(emptyForm); setEditingId(null); }}>{t("common.cancel")}</button>
+              <button type="submit" className="btn-primary">{editingId ? t("history.saveChanges") : t("common.save")}</button>
             </div>
           </form>
         </Modal>
@@ -719,35 +724,35 @@ export default function CryptoPage() {
 
       {/* ── Alerts modal ── */}
       {showAlertsModal && (
-        <Modal title="🔔 Price Alerty" onClose={() => setShowAlertsModal(false)}>
+        <Modal title={`🔔 ${t("crypto.priceAlerts")}`} onClose={() => setShowAlertsModal(false)}>
           <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
             {/* Add alert form */}
             <form onSubmit={handleAddAlert} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              <div style={{ fontSize: "0.78rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Nový alert</div>
+              <div style={{ fontSize: "0.78rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>{t("common.newAlert")}</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.5fr", gap: "0.75rem" }}>
                 <div>
-                  <label style={{ fontSize: "0.78rem", color: "var(--muted)", display: "block", marginBottom: "0.3rem" }}>Symbol</label>
+                  <label style={{ fontSize: "0.78rem", color: "var(--muted)", display: "block", marginBottom: "0.3rem" }}>{t("crypto.symbolLabel")}</label>
                   <input value={alertForm.symbol}
                     onChange={(e) => setAlertForm((f) => ({ ...f, symbol: e.target.value.toUpperCase() }))}
                     placeholder="BTC" required />
                 </div>
                 <div>
-                  <label style={{ fontSize: "0.78rem", color: "var(--muted)", display: "block", marginBottom: "0.3rem" }}>Podmínka</label>
+                  <label style={{ fontSize: "0.78rem", color: "var(--muted)", display: "block", marginBottom: "0.3rem" }}>{t("common.condition")}</label>
                   <select value={alertForm.direction}
                     onChange={(e) => setAlertForm((f) => ({ ...f, direction: e.target.value as "above" | "below" }))}>
-                    <option value="above">↑ Nad</option>
-                    <option value="below">↓ Pod</option>
+                    <option value="above">↑ {t("common.above")}</option>
+                    <option value="below">↓ {t("common.below")}</option>
                   </select>
                 </div>
                 <div>
-                  <label style={{ fontSize: "0.78rem", color: "var(--muted)", display: "block", marginBottom: "0.3rem" }}>Hranice (CZK)</label>
+                  <label style={{ fontSize: "0.78rem", color: "var(--muted)", display: "block", marginBottom: "0.3rem" }}>{t("common.thresholdCzk")}</label>
                   <input type="number" value={alertForm.threshold}
                     onChange={(e) => setAlertForm((f) => ({ ...f, threshold: e.target.value }))}
                     placeholder="2 500 000" required step="any" min="0" />
                 </div>
               </div>
               <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                <button type="submit" className="btn-primary" style={{ fontSize: "0.82rem" }}>+ Přidat alert</button>
+                <button type="submit" className="btn-primary" style={{ fontSize: "0.82rem" }}>+ {t("common.addAlert")}</button>
               </div>
             </form>
 
@@ -755,10 +760,10 @@ export default function CryptoPage() {
 
             {/* Alert list */}
             {alerts.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "1rem", color: "var(--muted)", fontSize: "0.85rem" }}>Žádné alerty</div>
+              <div style={{ textAlign: "center", padding: "1rem", color: "var(--muted)", fontSize: "0.85rem" }}>{t("common.noAlerts")}</div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                <div style={{ fontSize: "0.78rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Aktivní alerty</div>
+                <div style={{ fontSize: "0.78rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>{t("common.activeAlerts")}</div>
                 {alerts.map((alert) => {
                   const current = prices[alert.symbol]?.czk;
                   const fired = current !== undefined && (
@@ -775,11 +780,11 @@ export default function CryptoPage() {
                       <span>
                         {fired && "🔔 "}
                         <strong>{alert.symbol}</strong>{" "}
-                        {alert.direction === "above" ? "↑ nad" : "↓ pod"}{" "}
+                        {alert.direction === "above" ? `↑ ${t("common.above").toLowerCase()}` : `↓ ${t("common.below").toLowerCase()}`}{" "}
                         <strong>{formatCurrency(alert.threshold, "CZK")}</strong>
                         {current !== undefined && (
                           <span style={{ color: "var(--muted)", marginLeft: "0.5rem" }}>
-                            · nyní: {formatCurrency(current, "CZK")}
+                            · {t("common.now")}: {formatCurrency(current, "CZK")}
                           </span>
                         )}
                       </span>
