@@ -12,8 +12,8 @@ export const LANGUAGE_LABELS: Record<AppLanguage, string> = {
 };
 
 export const LANGUAGE_FLAGS: Record<AppLanguage, string> = {
-  cz: "CZ",
-  en: "EN",
+  cz: "🇨🇿",
+  en: "🇬🇧",
 };
 
 export const INTL_LOCALES: Record<AppLanguage, string> = {
