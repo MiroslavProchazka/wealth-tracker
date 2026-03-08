@@ -1,4 +1,5 @@
 import { useI18n } from "@/components/i18n/I18nProvider";
+import { formatCompactMarketStatus } from "@/lib/marketStatus";
 
 interface MarketSourceStatus {
   label: string;
@@ -252,7 +253,9 @@ export default function MarketDataStatus({
                 }}
               />
               <span style={{ color: "var(--foreground)" }}>{source.label}</span>
-              <span style={{ color: "inherit" }}>{describeSource(source, localeTag, t)}</span>
+              <span style={{ color: "inherit" }}>
+                {formatCompactMarketStatus(source, localeTag, t)}
+              </span>
             </div>
           );
         })}
