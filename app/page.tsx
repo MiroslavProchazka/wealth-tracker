@@ -3,13 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import * as Evolu from "@evolu/common";
 import { useQuery } from "@evolu/react";
+import { useDashboardStatus } from "@/components/DashboardStatusContext";
 import {
   NET_WORTH_SNAPSHOT_SCHEMA_VERSION,
   SNAPSHOT_AUTOMATION_SETTINGS_KEY,
   useEvolu,
 } from "@/lib/evolu";
 import { formatCurrency } from "@/lib/currencies";
-import MarketDataStatus from "@/components/MarketDataStatus";
 import StatCard from "@/components/StatCard";
 import Modal from "@/components/Modal";
 import FormField from "@/components/FormField";
@@ -33,6 +33,7 @@ import {
 export default function Dashboard() {
   const evolu = useEvolu();
   const { localeTag, t } = useI18n();
+  const { setItems: setSidebarStatusItems } = useDashboardStatus();
 
   const assetClassLabels: Record<string, string> = {
     Property: t("dashboard.assetClass_property"),
@@ -247,6 +248,96 @@ export default function Dashboard() {
         }));
       });
   }, [stocks]);
+
+  const sidebarStatusItems = useMemo(
+    () => [
+      {
+        label: t("common.today"),
+        value: new Date(todayKey).toLocaleDateString(localeTag, {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+        }),
+        tone: "neutral" as const,
+      },
+      {
+        label: t("dashboard.evoluStatus"),
+        value: evoluReady ? "OK" : t("dashboard.offline"),
+        tone: evoluReady ? ("ok" as const) : ("error" as const),
+      },
+      ...(cryptos.length > 0
+        ? [
+            {
+              label: t("dashboard.cryptoPrices"),
+              value: cryptoStatus.loading
+                ? t("marketStatus.refreshing")
+                : cryptoStatus.error
+                  ? t("marketStatus.unavailable", {
+                      value: cryptoStatus.fetchedAt
+                        ? new Date(cryptoStatus.fetchedAt).toLocaleString(localeTag)
+                        : t("marketStatus.never"),
+                    })
+                  : cryptoStatus.stale
+                    ? t("marketStatus.cached", {
+                        value: cryptoStatus.fetchedAt
+                          ? new Date(cryptoStatus.fetchedAt).toLocaleString(localeTag)
+                          : t("marketStatus.never"),
+                      })
+                    : cryptoStatus.fetchedAt
+                      ? t("marketStatus.justNow")
+                      : t("marketStatus.never"),
+              tone: cryptoStatus.error
+                ? ("error" as const)
+                : cryptoStatus.stale
+                  ? ("warning" as const)
+                  : cryptoStatus.loading
+                    ? ("loading" as const)
+                    : ("ok" as const),
+            },
+          ]
+        : []),
+      ...(stocks.length > 0
+        ? [
+            {
+              label: t("dashboard.stockPrices"),
+              value: stockStatus.loading
+                ? t("marketStatus.refreshing")
+                : stockStatus.error
+                  ? t("marketStatus.unavailable", {
+                      value: stockStatus.fetchedAt
+                        ? new Date(stockStatus.fetchedAt).toLocaleString(localeTag)
+                        : t("marketStatus.never"),
+                    })
+                  : stockStatus.stale
+                    ? t("marketStatus.cached", {
+                        value: stockStatus.fetchedAt
+                          ? new Date(stockStatus.fetchedAt).toLocaleString(localeTag)
+                          : t("marketStatus.never"),
+                      })
+                    : stockStatus.fetchedAt
+                      ? t("marketStatus.justNow")
+                      : t("marketStatus.never"),
+              tone: stockStatus.error
+                ? ("error" as const)
+                : stockStatus.stale
+                  ? ("warning" as const)
+                  : stockStatus.loading
+                    ? ("loading" as const)
+                    : ("ok" as const),
+            },
+          ]
+        : []),
+    ],
+    [cryptoStatus, cryptos.length, evoluReady, localeTag, stockStatus, stocks.length, t, todayKey],
+  );
+
+  useEffect(() => {
+    setSidebarStatusItems(sidebarStatusItems);
+  }, [setSidebarStatusItems, sidebarStatusItems]);
+
+  useEffect(() => () => {
+    setSidebarStatusItems([]);
+  }, [setSidebarStatusItems]);
 
   // ── Computed values ────────────────────────────────────────────────────────
   const cryptoValue = cryptos.reduce((s, c) => {
@@ -493,33 +584,6 @@ export default function Dashboard() {
           {t("sidebar.dashboard")}
         </h1>
       </div>
-
-      <MarketDataStatus
-        metaItems={[
-          {
-            label: t("common.today"),
-            value: new Date().toLocaleDateString(localeTag, {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-            }),
-          },
-          {
-            label: t("dashboard.evoluStatus"),
-            value: evoluReady ? "OK" : t("dashboard.offline"),
-            tone: evoluReady ? "ok" : "error",
-          },
-        ]}
-        sources={[
-          ...(cryptos.length > 0
-            ? [{ label: t("dashboard.cryptoPrices"), ...cryptoStatus }]
-            : []),
-          ...(stocks.length > 0
-            ? [{ label: t("dashboard.stockPrices"), ...stockStatus }]
-            : []),
-        ]}
-      />
-
       {/* ── Net Worth hero card ─────────────────────────────────── */}
       <div
         className="card"

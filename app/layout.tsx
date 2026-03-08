@@ -3,6 +3,7 @@ import "./globals.css";
 import Sidebar from "@/components/Sidebar";
 import EvoluNoSSR from "@/components/EvoluNoSSR";
 import SwRegister from "@/components/SwRegister";
+import { DashboardStatusProvider } from "@/components/DashboardStatusContext";
 import { I18nProvider } from "@/components/i18n/I18nProvider";
 import LanguageSwitcher from "@/components/i18n/LanguageSwitcher";
 
@@ -37,26 +38,28 @@ export default function RootLayout({
     <html lang="cs" suppressHydrationWarning>
       <body style={{ display: "flex", minHeight: "100vh", background: "var(--bg)" }}>
         <I18nProvider>
-          {/* Sidebar has no Evolu dependency — keep it outside the client-only
-              EvoluNoSSR wrapper so it renders immediately on first paint. */}
-          <Sidebar />
-          <EvoluNoSSR>
-            <main
-              className="main-content"
-              style={{
-                flex: 1,
-                padding: "2rem 2.5rem",
-                maxWidth: "1400px",
-                overflowX: "hidden",
-                minWidth: 0,
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "1rem" }}>
-                <LanguageSwitcher />
-              </div>
-              {children}
-            </main>
-          </EvoluNoSSR>
+          <DashboardStatusProvider>
+            {/* Sidebar has no Evolu dependency — keep it outside the client-only
+                EvoluNoSSR wrapper so it renders immediately on first paint. */}
+            <Sidebar />
+            <EvoluNoSSR>
+              <main
+                className="main-content"
+                style={{
+                  flex: 1,
+                  padding: "2rem 2.5rem",
+                  maxWidth: "1400px",
+                  overflowX: "hidden",
+                  minWidth: 0,
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "1rem" }}>
+                  <LanguageSwitcher />
+                </div>
+                {children}
+              </main>
+            </EvoluNoSSR>
+          </DashboardStatusProvider>
           <SwRegister />
         </I18nProvider>
       </body>

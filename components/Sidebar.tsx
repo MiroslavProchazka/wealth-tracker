@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React from "react";
+import { useDashboardStatus } from "@/components/DashboardStatusContext";
 import { useI18n } from "@/components/i18n/I18nProvider";
 
 /* ── Inline SVG icons (16×16, stroke-based) ─────────────────── */
@@ -63,6 +64,7 @@ const Icons = {
 export default function Sidebar() {
   const pathname = usePathname();
   const { t } = useI18n();
+  const { items } = useDashboardStatus();
   const navItems = [
     { href: "/", label: t("sidebar.dashboard"), icon: Icons.dashboard },
     { href: "/crypto", label: t("sidebar.crypto"), icon: Icons.crypto },
@@ -72,6 +74,41 @@ export default function Sidebar() {
     { href: "/history", label: t("sidebar.history"), icon: Icons.history },
     { href: "/settings", label: t("sidebar.account"), icon: Icons.settings },
   ];
+  const toneStyles = {
+    ok: {
+      border: "rgba(34, 197, 94, 0.18)",
+      background: "rgba(34, 197, 94, 0.08)",
+      text: "#86efac",
+      dot: "var(--green)",
+    },
+    warning: {
+      border: "rgba(245, 158, 11, 0.2)",
+      background: "rgba(245, 158, 11, 0.08)",
+      text: "#fcd34d",
+      dot: "var(--yellow)",
+    },
+    error: {
+      border: "rgba(244, 63, 94, 0.22)",
+      background: "rgba(244, 63, 94, 0.08)",
+      text: "#fda4af",
+      dot: "var(--red)",
+    },
+    loading: {
+      border: "rgba(6, 182, 212, 0.2)",
+      background: "rgba(6, 182, 212, 0.08)",
+      text: "#67e8f9",
+      dot: "var(--cyan)",
+    },
+    neutral: {
+      border: "rgba(255, 255, 255, 0.08)",
+      background: "rgba(255, 255, 255, 0.03)",
+      text: "var(--text-3)",
+      dot: "rgba(255, 255, 255, 0.4)",
+    },
+  } as const;
+  const footerItems = items.length > 0
+    ? items
+    : [{ label: t("dashboard.evoluStatus"), value: "—", tone: "neutral" as const }];
 
   return (
     <React.Fragment>
@@ -178,31 +215,65 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Footer — sync status pill */}
+      {/* Footer — compact status badges */}
       <div style={{
         padding: "1rem 1.25rem",
         borderTop: "1px solid var(--border)",
       }}>
-        <div style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: "0.4rem",
-          padding: "0.3rem 0.7rem",
-          borderRadius: "20px",
-          background: "rgba(34, 197, 94, 0.08)",
-          border: "1px solid rgba(34, 197, 94, 0.15)",
-        }}>
-          <span style={{
-            width: "5px",
-            height: "5px",
-            borderRadius: "50%",
-            background: "var(--green)",
-            display: "inline-block",
-            boxShadow: "0 0 6px var(--green)",
-          }} />
-          <span style={{ fontSize: "0.7rem", color: "var(--green)", fontWeight: 500, letterSpacing: "0.02em" }}>
-            {t("sidebar.synced")}
-          </span>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-start",
+            gap: "0.45rem",
+          }}
+        >
+          {footerItems.map((item) => {
+            const tone = item.tone ?? "neutral";
+
+            return (
+              <div
+                key={`${item.label}-${item.value}`}
+                title={`${item.label}: ${item.value}`}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.45rem",
+                  maxWidth: "100%",
+                  padding: "0.34rem 0.6rem",
+                  borderRadius: "999px",
+                  border: `1px solid ${toneStyles[tone].border}`,
+                  background: toneStyles[tone].background,
+                  color: toneStyles[tone].text,
+                  fontSize: "0.72rem",
+                  lineHeight: 1.2,
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: "0.34rem",
+                    height: "0.34rem",
+                    borderRadius: "999px",
+                    background: toneStyles[tone].dot,
+                    flexShrink: 0,
+                  }}
+                />
+                <span style={{ color: "var(--text-2)" }}>{item.label}</span>
+                <span
+                  style={{
+                    color: "inherit",
+                    fontWeight: 500,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {item.value}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
     </aside>
