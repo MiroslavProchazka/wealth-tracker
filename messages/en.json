@@ -63,7 +63,7 @@
     "minutesAgo": "Updated {count} min ago",
     "hoursAgo": "Updated {count} h ago",
     "updatedAt": "Updated {value}",
-    "compactNever": "—",
+    "compactNever": "no data",
     "compactJustNow": "↻ now",
     "compactMinutesAgo": "↻ {count} min",
     "compactHoursAgo": "↻ {count} h",
