@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import * as Evolu from "@evolu/common";
 import { useQuery } from "@evolu/react";
 import { useDashboardStatus } from "@/components/DashboardStatusContext";
+import { useDashboardStatus } from "@/components/DashboardStatusContext";
 import {
   NET_WORTH_SNAPSHOT_SCHEMA_VERSION,
   SNAPSHOT_AUTOMATION_SETTINGS_KEY,
@@ -34,6 +35,7 @@ import { formatCompactMarketStatus } from "@/lib/marketStatus";
 export default function Dashboard() {
   const evolu = useEvolu();
   const { localeTag, t } = useI18n();
+  const { setItems: setSidebarStatusItems } = useDashboardStatus();
   const { setItems: setSidebarStatusItems } = useDashboardStatus();
 
   const assetClassLabels: Record<string, string> = {
@@ -259,7 +261,7 @@ export default function Dashboard() {
           day: "numeric",
           month: "long",
         }),
-        tone: "ok" as const,
+        tone: "neutral" as const,
       },
       {
         label: t("dashboard.evoluStatus"),
@@ -270,7 +272,27 @@ export default function Dashboard() {
         ? [
             {
               label: t("dashboard.cryptoPrices"),
-              value: formatCompactMarketStatus(cryptoStatus, localeTag, t),
+              value: cryptoStatus.loading
+                ? t("marketStatus.refreshing")
+                : cryptoStatus.error
+                  ? t("marketStatus.unavailable", {
+                      value: cryptoStatus.fetchedAt
+                        ? new Date(cryptoStatus.fetchedAt).toLocaleString(
+                            localeTag,
+                          )
+                        : t("marketStatus.never"),
+                    })
+                  : cryptoStatus.stale
+                    ? t("marketStatus.cached", {
+                        value: cryptoStatus.fetchedAt
+                          ? new Date(cryptoStatus.fetchedAt).toLocaleString(
+                              localeTag,
+                            )
+                          : t("marketStatus.never"),
+                      })
+                    : cryptoStatus.fetchedAt
+                      ? t("marketStatus.justNow")
+                      : t("marketStatus.never"),
               tone: cryptoStatus.error
                 ? ("error" as const)
                 : cryptoStatus.stale
@@ -285,7 +307,27 @@ export default function Dashboard() {
         ? [
             {
               label: t("dashboard.stockPrices"),
-              value: formatCompactMarketStatus(stockStatus, localeTag, t),
+              value: stockStatus.loading
+                ? t("marketStatus.refreshing")
+                : stockStatus.error
+                  ? t("marketStatus.unavailable", {
+                      value: stockStatus.fetchedAt
+                        ? new Date(stockStatus.fetchedAt).toLocaleString(
+                            localeTag,
+                          )
+                        : t("marketStatus.never"),
+                    })
+                  : stockStatus.stale
+                    ? t("marketStatus.cached", {
+                        value: stockStatus.fetchedAt
+                          ? new Date(stockStatus.fetchedAt).toLocaleString(
+                              localeTag,
+                            )
+                          : t("marketStatus.never"),
+                      })
+                    : stockStatus.fetchedAt
+                      ? t("marketStatus.justNow")
+                      : t("marketStatus.never"),
               tone: stockStatus.error
                 ? ("error" as const)
                 : stockStatus.stale
@@ -297,16 +339,28 @@ export default function Dashboard() {
           ]
         : []),
     ],
-    [cryptoStatus, cryptos.length, evoluReady, localeTag, stockStatus, stocks.length, t, todayKey],
+    [
+      cryptoStatus,
+      cryptos.length,
+      evoluReady,
+      localeTag,
+      stockStatus,
+      stocks.length,
+      t,
+      todayKey,
+    ],
   );
 
   useEffect(() => {
     setSidebarStatusItems(sidebarStatusItems);
   }, [setSidebarStatusItems, sidebarStatusItems]);
 
-  useEffect(() => () => {
-    setSidebarStatusItems([]);
-  }, [setSidebarStatusItems]);
+  useEffect(
+    () => () => {
+      setSidebarStatusItems([]);
+    },
+    [setSidebarStatusItems],
+  );
 
   // ── Computed values ────────────────────────────────────────────────────────
   const cryptoValue = cryptos.reduce((s, c) => {
@@ -374,7 +428,9 @@ export default function Dashboard() {
     { label: "Crypto", value: cryptoValue, color: "#f97316", href: "/crypto" },
   ].filter((i) => i.value > 0);
   const total = allocationItems.reduce((s, i) => s + i.value, 0) || 1;
-  const targetMap = ASSET_CLASSES.reduce<Record<(typeof ASSET_CLASSES)[number], number>>(
+  const targetMap = ASSET_CLASSES.reduce<
+    Record<(typeof ASSET_CLASSES)[number], number>
+  >(
     (acc, assetClass) => {
       const existing = allocationTargets.find(
         (row) => String(row.assetClass) === assetClass,
@@ -395,7 +451,8 @@ export default function Dashboard() {
     Receivables: receivablesValue,
   };
   const allocationComparison = ASSET_CLASSES.map((assetClass) => {
-    const actualPercent = totalAssets > 0 ? (actualMap[assetClass] / totalAssets) * 100 : 0;
+    const actualPercent =
+      totalAssets > 0 ? (actualMap[assetClass] / totalAssets) * 100 : 0;
     const targetPercent = targetMap[assetClass];
     return {
       assetClass,
@@ -406,17 +463,33 @@ export default function Dashboard() {
     };
   });
   const allTags = [
-    ...cryptos.flatMap((row) => parseTags((row as { tags?: string | null }).tags ?? null)),
-    ...stocks.flatMap((row) => parseTags((row as { tags?: string | null }).tags ?? null)),
-    ...properties.flatMap((row) => parseTags((row as { tags?: string | null }).tags ?? null)),
-    ...savings.flatMap((row) => parseTags((row as { tags?: string | null }).tags ?? null)),
-    ...receivables.flatMap((row) => parseTags((row as { tags?: string | null }).tags ?? null)),
-    ...portfolioNotes.flatMap((row) => parseTags((row.tags as string | null) ?? null)),
+    ...cryptos.flatMap((row) =>
+      parseTags((row as { tags?: string | null }).tags ?? null),
+    ),
+    ...stocks.flatMap((row) =>
+      parseTags((row as { tags?: string | null }).tags ?? null),
+    ),
+    ...properties.flatMap((row) =>
+      parseTags((row as { tags?: string | null }).tags ?? null),
+    ),
+    ...savings.flatMap((row) =>
+      parseTags((row as { tags?: string | null }).tags ?? null),
+    ),
+    ...receivables.flatMap((row) =>
+      parseTags((row as { tags?: string | null }).tags ?? null),
+    ),
+    ...portfolioNotes.flatMap((row) =>
+      parseTags((row.tags as string | null) ?? null),
+    ),
   ];
   const tagCloud = [...new Set(allTags)].slice(0, 20);
   const pricingReady =
-    (cryptos.length === 0 || cryptoStatus.fetchedAt !== null || cryptoStatus.error !== null) &&
-    (stocks.length === 0 || stockStatus.fetchedAt !== null || stockStatus.error !== null);
+    (cryptos.length === 0 ||
+      cryptoStatus.fetchedAt !== null ||
+      cryptoStatus.error !== null) &&
+    (stocks.length === 0 ||
+      stockStatus.fetchedAt !== null ||
+      stockStatus.error !== null);
 
   useEffect(() => {
     if (!pricingReady) return;
@@ -451,7 +524,10 @@ export default function Dashboard() {
     const showTimeout = window.setTimeout(() => {
       setAutoSnapshotMsg(t("dashboard.automaticSnapshot", { date: todayKey }));
     }, 0);
-    const clearTimeoutId = window.setTimeout(() => setAutoSnapshotMsg(null), 5000);
+    const clearTimeoutId = window.setTimeout(
+      () => setAutoSnapshotMsg(null),
+      5000,
+    );
     return () => {
       window.clearTimeout(showTimeout);
       window.clearTimeout(clearTimeoutId);
@@ -521,7 +597,10 @@ export default function Dashboard() {
   }
 
   function handleDeleteNote(id: string) {
-    evolu.update("portfolioNote", { id: id as never, deleted: Evolu.sqliteTrue } as never);
+    evolu.update("portfolioNote", {
+      id: id as never,
+      deleted: Evolu.sqliteTrue,
+    } as never);
   }
 
   return (
@@ -679,7 +758,9 @@ export default function Dashboard() {
       </div>
 
       <div className="card" style={{ marginBottom: "1.5rem" }}>
-        <h2 style={{ margin: "0 0 1.25rem", fontSize: "1rem", fontWeight: 700 }}>
+        <h2
+          style={{ margin: "0 0 1.25rem", fontSize: "1rem", fontWeight: 700 }}
+        >
           {t("dashboard.targetVsActual")}
         </h2>
         <div style={{ display: "grid", gap: "0.85rem" }}>
@@ -694,10 +775,12 @@ export default function Dashboard() {
                   marginBottom: "0.3rem",
                 }}
               >
-                <span style={{ fontWeight: 600 }}>{assetClassLabels[item.assetClass] ?? item.assetClass}</span>
+                <span style={{ fontWeight: 600 }}>
+                  {assetClassLabels[item.assetClass] ?? item.assetClass}
+                </span>
                 <span style={{ color: "var(--muted)" }}>
-                  {t("dashboard.actual")} {item.actualPercent.toFixed(1)}% · {t("dashboard.target")} {item.targetPercent.toFixed(1)}% ·
-                  {" "}
+                  {t("dashboard.actual")} {item.actualPercent.toFixed(1)}% ·{" "}
+                  {t("dashboard.target")} {item.targetPercent.toFixed(1)}% ·{" "}
                   <span
                     style={{
                       color:
@@ -727,7 +810,8 @@ export default function Dashboard() {
                     position: "absolute",
                     inset: 0,
                     width: `${Math.min(100, item.actualPercent)}%`,
-                    background: "linear-gradient(90deg, #3b82f6 0%, #10b981 100%)",
+                    background:
+                      "linear-gradient(90deg, #3b82f6 0%, #10b981 100%)",
                   }}
                 />
                 <div
@@ -867,7 +951,10 @@ export default function Dashboard() {
             <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>
               {t("dashboard.portfolioNotes")}
             </h2>
-            <button className="btn-primary" onClick={() => setShowNoteModal(true)}>
+            <button
+              className="btn-primary"
+              onClick={() => setShowNoteModal(true)}
+            >
               + {t("dashboard.addNote")}
             </button>
           </div>
@@ -914,28 +1001,46 @@ export default function Dashboard() {
                       </button>
                     </div>
                   </div>
-                  <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginBottom: "0.45rem" }}>
-                    {new Date(String(note.noteDate)).toLocaleDateString(localeTag)}
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "var(--muted)",
+                      marginBottom: "0.45rem",
+                    }}
+                  >
+                    {new Date(String(note.noteDate)).toLocaleDateString(
+                      localeTag,
+                    )}
                   </div>
                   <div style={{ fontSize: "0.84rem", lineHeight: 1.6 }}>
                     {note.body as string}
                   </div>
-                  {parseTags((note.tags as string | null) ?? null).length > 0 && (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", marginTop: "0.65rem" }}>
-                      {parseTags((note.tags as string | null) ?? null).map((tag) => (
-                        <span
-                          key={tag}
-                          style={{
-                            padding: "0.2rem 0.5rem",
-                            borderRadius: "999px",
-                            background: "rgba(59,130,246,0.12)",
-                            color: "var(--accent)",
-                            fontSize: "0.72rem",
-                          }}
-                        >
-                          #{tag}
-                        </span>
-                      ))}
+                  {parseTags((note.tags as string | null) ?? null).length >
+                    0 && (
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "0.4rem",
+                        marginTop: "0.65rem",
+                      }}
+                    >
+                      {parseTags((note.tags as string | null) ?? null).map(
+                        (tag) => (
+                          <span
+                            key={tag}
+                            style={{
+                              padding: "0.2rem 0.5rem",
+                              borderRadius: "999px",
+                              background: "rgba(59,130,246,0.12)",
+                              color: "var(--accent)",
+                              fontSize: "0.72rem",
+                            }}
+                          >
+                            #{tag}
+                          </span>
+                        ),
+                      )}
                     </div>
                   )}
                 </div>
@@ -976,7 +1081,11 @@ export default function Dashboard() {
 
       {showNoteModal && (
         <Modal
-          title={editingNoteId ? t("dashboard.editNote") : t("dashboard.addPortfolioNote")}
+          title={
+            editingNoteId
+              ? t("dashboard.editNote")
+              : t("dashboard.addPortfolioNote")
+          }
           onClose={() => {
             setShowNoteModal(false);
             resetNoteForm();
@@ -991,7 +1100,10 @@ export default function Dashboard() {
               name="title"
               value={noteForm.title}
               onChange={(e) =>
-                setNoteForm((current) => ({ ...current, title: e.target.value }))
+                setNoteForm((current) => ({
+                  ...current,
+                  title: e.target.value,
+                }))
               }
               required
             />
@@ -1019,7 +1131,13 @@ export default function Dashboard() {
                 {noteError}
               </div>
             )}
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "0.75rem",
+              }}
+            >
               <button
                 type="button"
                 className="btn-ghost"
@@ -1031,7 +1149,9 @@ export default function Dashboard() {
                 {t("common.cancel")}
               </button>
               <button type="submit" className="btn-primary">
-                {editingNoteId ? t("history.saveChanges") : t("common.saveNote")}
+                {editingNoteId
+                  ? t("history.saveChanges")
+                  : t("common.saveNote")}
               </button>
             </div>
           </form>
