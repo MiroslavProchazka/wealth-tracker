@@ -72,6 +72,7 @@ export default function Sidebar() {
     { href: "/property", label: t("sidebar.property"), icon: Icons.property },
     { href: "/savings", label: t("sidebar.savings"), icon: Icons.savings },
     { href: "/history", label: t("sidebar.history"), icon: Icons.history },
+    { href: "/account", label: t("sidebar.account"), icon: Icons.settings },
     { href: "/settings", label: t("sidebar.settings"), icon: Icons.settings },
   ];
   const toneStyles = {
