@@ -549,8 +549,33 @@ function SettingsContent() {
         </p>
       </div>
 
+      <div
+        className="card"
+        style={{
+          marginBottom: "1.5rem",
+          background:
+            "linear-gradient(135deg, rgba(6,182,212,0.08) 0%, rgba(99,102,241,0.06) 100%)",
+        }}
+      >
+        <h2 style={{ margin: "0 0 0.5rem", fontSize: "1rem", fontWeight: 700 }}>
+          🧭 {t("settings.evoluOnboardingTitle")}
+        </h2>
+        <p style={{ color: "var(--muted)", fontSize: "0.8rem", margin: "0 0 0.9rem" }}>
+          {t("settings.evoluOnboardingDescription")}
+        </p>
+        <ol style={{ margin: 0, paddingLeft: "1.05rem", display: "grid", gap: "0.45rem", fontSize: "0.82rem" }}>
+          <li>{t("settings.evoluOnboardingStep1")}</li>
+          <li>{t("settings.evoluOnboardingStep2")}</li>
+          <li>{t("settings.evoluOnboardingStep3")}</li>
+        </ol>
+        <div style={{ display: "flex", gap: "0.7rem", flexWrap: "wrap", marginTop: "0.9rem" }}>
+          <a href="#seed-phrase" className="btn-ghost">{t("settings.evoluOnboardingGoSeed")}</a>
+          <a href="#sync-relay" className="btn-ghost">{t("settings.evoluOnboardingGoSync")}</a>
+        </div>
+      </div>
+
       {/* Seed Phrase */}
-      <div className="card" style={{ marginBottom: "1.5rem" }}>
+      <div id="seed-phrase" className="card" style={{ marginBottom: "1.5rem" }}>
         <h2 style={{ margin: "0 0 0.5rem", fontSize: "1rem", fontWeight: 700 }}>
           🔑 {t("settings.seedTitle")}
         </h2>
@@ -653,7 +678,7 @@ function SettingsContent() {
       </div>
 
       {/* Relay / Sync */}
-      <div className="card" style={{ marginBottom: "1.5rem" }}>
+      <div id="sync-relay" className="card" style={{ marginBottom: "1.5rem" }}>
         <div
           style={{
             display: "flex",
