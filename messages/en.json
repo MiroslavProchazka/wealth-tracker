@@ -111,6 +111,7 @@
     "tagCloud": "Tag Cloud",
     "noTags": "No tags yet. Add tags to assets or notes to make the portfolio easier to scan.",
     "marketDataSetupTitle": "Market prices need setup",
+    "marketDataSetupBodyNoKeysNoHoldings": "Your market API keys are empty. Set them now so live prices work as soon as you add crypto or stock holdings.",
     "marketDataSetupBodyNoKeys": "Some crypto/stock prices are unavailable. Add your API keys in Settings to enable live pricing.",
     "marketDataSetupBodyWithKeys": "Some crypto/stock prices are unavailable. Open Settings to test or update your provider keys.",
     "openMarketSettings": "Open Market Settings",

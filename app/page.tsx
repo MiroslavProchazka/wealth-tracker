@@ -434,7 +434,9 @@ export default function Dashboard() {
     (stocks.length === 0 ||
       stockStatus.fetchedAt !== null ||
       stockStatus.error !== null);
+  const hasMarketTrackedAssets = cryptos.length > 0 || stocks.length > 0;
   const marketDataNeedsSetup =
+    !hasCustomMarketKeys ||
     (cryptos.length > 0 &&
       (cryptoStatus.error !== null || cryptoStatus.fetchedAt === null)) ||
     (stocks.length > 0 &&
@@ -600,9 +602,11 @@ export default function Dashboard() {
               {t("dashboard.marketDataSetupTitle")}
             </div>
             <div style={{ fontSize: "0.82rem", color: "var(--muted)" }}>
-              {hasCustomMarketKeys
-                ? t("dashboard.marketDataSetupBodyWithKeys")
-                : t("dashboard.marketDataSetupBodyNoKeys")}
+              {!hasCustomMarketKeys && !hasMarketTrackedAssets
+                ? t("dashboard.marketDataSetupBodyNoKeysNoHoldings")
+                : hasCustomMarketKeys
+                  ? t("dashboard.marketDataSetupBodyWithKeys")
+                  : t("dashboard.marketDataSetupBodyNoKeys")}
             </div>
           </div>
           <Link href="/settings#market-data" className="btn-primary">
