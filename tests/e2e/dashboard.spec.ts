@@ -187,11 +187,23 @@ test.describe("Dashboard (/)", () => {
   });
 
   test("přidá a upraví portfolio note", async ({ page }) => {
-    await page.getByRole("button", { name: /\+\s*Add Note/i }).click();
+    await page.goto("/settings");
+    await waitForApp(page);
+    await page
+      .getByLabel(
+        /Show Portfolio Notes on dashboard|Zobrazovat Portfolio poznámky na dashboardu/i,
+      )
+      .check();
+
+    await page.goto("/");
+    await waitForApp(page);
+    await page.getByRole("button", { name: /\+\s*Add Note|\+\s*Přidat poznámku/i }).click();
     await page.locator("input[name='title']").fill("Rebalance Q2");
     await page.locator("textarea[name='body']").fill("Trim US tech and increase cash.");
     await page.locator("input[name='tags']").fill("rebalance,cash");
-    await page.getByRole("button", { name: /Save Note/i }).click();
+    await page
+      .getByRole("button", { name: /Save Note|Uložit poznámku/i })
+      .click();
     await expect(page.locator("input[name='title']")).toHaveCount(0);
     await page.reload();
     await waitForApp(page);
@@ -199,10 +211,10 @@ test.describe("Dashboard (/)", () => {
     const noteCard = page.getByText("Rebalance Q2").locator("..").locator("..");
     await expect(noteCard).toBeVisible();
     await expect(noteCard).toContainText("#rebalance");
-    await noteCard.getByRole("button", { name: /Edit/i }).click();
+    await noteCard.getByRole("button", { name: /Edit|Upravit/i }).click();
     await expect(page.locator("input[name='title']")).toHaveValue("Rebalance Q2");
     await page.locator("textarea[name='body']").fill("Trim US tech and add Europe exposure.");
-    await page.getByRole("button", { name: /Save Changes/i }).click();
+    await page.getByRole("button", { name: /Save Changes|Uložit změny/i }).click();
     await expect(page.locator("input[name='title']")).toHaveCount(0);
     await page.reload();
     await waitForApp(page);
