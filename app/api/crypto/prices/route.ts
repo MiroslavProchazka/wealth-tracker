@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { SYMBOL_TO_ID } from "@/lib/coingecko";
+import { getDemoCryptoPrices } from "@/lib/demoMarket";
+import { isDemoModeRequest } from "@/lib/demoMode";
 
 const BASE = "https://api.coingecko.com/api/v3";
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minut
@@ -49,6 +51,14 @@ export async function GET(req: Request) {
 
   if (symbols.length === 0) {
     return NextResponse.json({ prices: {}, fetchedAt: new Date().toISOString() });
+  }
+
+  if (isDemoModeRequest(req)) {
+    return NextResponse.json({
+      prices: getDemoCryptoPrices(symbols),
+      fetchedAt: new Date().toISOString(),
+      demo: true,
+    });
   }
 
   // Cache key = sorted symbols

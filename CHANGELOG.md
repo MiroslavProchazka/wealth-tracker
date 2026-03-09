@@ -16,6 +16,9 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `vMAJOR.MINOR.
 - Portfolio allocation bar in Stocks view
 - Detail modal per stock (open/high/low, market cap, P/E, dividend yield, 52W range)
 - Extended Evolu schema: `buyPrice`, `exchange`, `sector` fields for stock holdings
+- Onboarding start choice: `Test Account` (demo import) vs `Start Empty`
+- Demo account import seeds all portfolio sections and enables notes/tag/allocation modules
+- Demo market mode with hardcoded crypto/stock prices and fiat rates (works without API keys)
 
 ---
 

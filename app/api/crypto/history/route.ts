@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { SYMBOL_TO_ID } from "@/lib/coingecko";
+import { getDemoCryptoHistory } from "@/lib/demoMarket";
+import { isDemoModeRequest } from "@/lib/demoMode";
 
 const BASE = "https://api.coingecko.com/api/v3";
 
@@ -10,6 +12,16 @@ export async function GET(req: Request) {
   const currency = (searchParams.get("currency") ?? "czk").toLowerCase();
 
   if (!symbol) return NextResponse.json({ error: "symbol required" }, { status: 400 });
+
+  if (isDemoModeRequest(req)) {
+    return NextResponse.json({
+      symbol,
+      currency: currency.toUpperCase(),
+      days,
+      points: getDemoCryptoHistory(symbol, days, currency),
+      demo: true,
+    });
+  }
 
   const id = SYMBOL_TO_ID[symbol] ?? symbol.toLowerCase();
   const url = `${BASE}/coins/${id}/market_chart?vs_currency=${currency}&days=${days}&interval=daily`;
