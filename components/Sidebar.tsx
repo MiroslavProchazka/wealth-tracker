@@ -140,17 +140,30 @@ export default function Sidebar() {
             width: "32px",
             height: "32px",
             borderRadius: "8px",
-            background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+            background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontSize: "14px",
-            fontWeight: 700,
-            color: "#fff",
             flexShrink: 0,
-            boxShadow: "0 2px 8px rgba(99,102,241,0.35)",
+            boxShadow: "0 4px 12px rgba(79,70,229,0.35)",
           }}>
-            W
+            <svg
+              width="19"
+              height="19"
+              viewBox="0 0 20 20"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                d="M2.5 13.5L6.1 7.6L9.2 11L12.8 4.8L17.5 13.5"
+                stroke="rgba(255,255,255,0.95)"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <circle cx="17.4" cy="13.6" r="1.7" fill="rgba(255,255,255,0.95)" />
+            </svg>
           </div>
           <div>
             <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "var(--text)", letterSpacing: "-0.01em" }}>
