@@ -6,6 +6,7 @@ import { useQuery } from "@evolu/react";
 import {
   NET_WORTH_SNAPSHOT_SCHEMA_VERSION,
   SNAPSHOT_AUTOMATION_SETTINGS_KEY,
+  TARGET_ALLOCATION_FEATURE_ENABLED_KEY,
   useEvolu,
 } from "@/lib/evolu";
 import { formatCurrency } from "@/lib/currencies";
@@ -142,6 +143,19 @@ export default function Dashboard() {
     tags: "",
   });
   const [autoSnapshotMsg, setAutoSnapshotMsg] = useState<string | null>(null);
+  const [targetAllocationEnabled] = useState(
+    () => {
+      if (typeof window === "undefined") return false;
+      try {
+        const stored = window.localStorage.getItem(
+          TARGET_ALLOCATION_FEATURE_ENABLED_KEY,
+        );
+        return stored ? JSON.parse(stored) === true : false;
+      } catch {
+        return false;
+      }
+    },
+  );
   const [todayKey, setTodayKey] = useState(
     new Date().toISOString().split("T")[0],
   );
@@ -600,78 +614,80 @@ export default function Dashboard() {
         />
       </div>
 
-      <div className="card" style={{ marginBottom: "1.5rem" }}>
-        <h2
-          style={{ margin: "0 0 1.25rem", fontSize: "1rem", fontWeight: 700 }}
-        >
-          {t("dashboard.targetVsActual")}
-        </h2>
-        <div style={{ display: "grid", gap: "0.85rem" }}>
-          {allocationComparison.map((item) => (
-            <div key={item.assetClass}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: "1rem",
-                  fontSize: "0.8rem",
-                  marginBottom: "0.3rem",
-                }}
-              >
-                <span style={{ fontWeight: 600 }}>
-                  {assetClassLabels[item.assetClass] ?? item.assetClass}
-                </span>
-                <span style={{ color: "var(--muted)" }}>
-                  {t("dashboard.actual")} {item.actualPercent.toFixed(1)}% ·{" "}
-                  {t("dashboard.target")} {item.targetPercent.toFixed(1)}% ·{" "}
-                  <span
-                    style={{
-                      color:
-                        Math.abs(item.diffPercent) <= 2
-                          ? "var(--green)"
-                          : item.diffPercent > 0
-                            ? "var(--yellow)"
-                            : "var(--accent)",
-                    }}
-                  >
-                    {item.diffPercent >= 0 ? "+" : ""}
-                    {item.diffPercent.toFixed(1)} pp
+      {targetAllocationEnabled && (
+        <div className="card" style={{ marginBottom: "1.5rem" }}>
+          <h2
+            style={{ margin: "0 0 1.25rem", fontSize: "1rem", fontWeight: 700 }}
+          >
+            {t("dashboard.targetVsActual")}
+          </h2>
+          <div style={{ display: "grid", gap: "0.85rem" }}>
+            {allocationComparison.map((item) => (
+              <div key={item.assetClass}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: "1rem",
+                    fontSize: "0.8rem",
+                    marginBottom: "0.3rem",
+                  }}
+                >
+                  <span style={{ fontWeight: 600 }}>
+                    {assetClassLabels[item.assetClass] ?? item.assetClass}
                   </span>
-                </span>
-              </div>
-              <div
-                style={{
-                  position: "relative",
-                  height: "8px",
-                  background: "var(--surface-3)",
-                  borderRadius: "999px",
-                  overflow: "hidden",
-                }}
-              >
+                  <span style={{ color: "var(--muted)" }}>
+                    {t("dashboard.actual")} {item.actualPercent.toFixed(1)}% ·{" "}
+                    {t("dashboard.target")} {item.targetPercent.toFixed(1)}% ·{" "}
+                    <span
+                      style={{
+                        color:
+                          Math.abs(item.diffPercent) <= 2
+                            ? "var(--green)"
+                            : item.diffPercent > 0
+                              ? "var(--yellow)"
+                              : "var(--accent)",
+                      }}
+                    >
+                      {item.diffPercent >= 0 ? "+" : ""}
+                      {item.diffPercent.toFixed(1)} pp
+                    </span>
+                  </span>
+                </div>
                 <div
                   style={{
-                    position: "absolute",
-                    inset: 0,
-                    width: `${Math.min(100, item.actualPercent)}%`,
-                    background:
-                      "linear-gradient(90deg, #3b82f6 0%, #10b981 100%)",
+                    position: "relative",
+                    height: "8px",
+                    background: "var(--surface-3)",
+                    borderRadius: "999px",
+                    overflow: "hidden",
                   }}
-                />
-                <div
-                  style={{
-                    position: "absolute",
-                    left: `${Math.min(100, item.targetPercent)}%`,
-                    top: "-2px",
-                    bottom: "-2px",
-                    width: "2px",
-                    background: "#f59e0b",
-                  }}
-                />
+                >
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      width: `${Math.min(100, item.actualPercent)}%`,
+                      background:
+                        "linear-gradient(90deg, #3b82f6 0%, #10b981 100%)",
+                    }}
+                  />
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: `${Math.min(100, item.targetPercent)}%`,
+                      top: "-2px",
+                      bottom: "-2px",
+                      width: "2px",
+                      background: "#f59e0b",
+                    }}
+                  />
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── Bottom row ─────────────────────────────────────────── */}
       <div style={{ marginBottom: "1.5rem" }}>

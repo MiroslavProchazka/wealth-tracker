@@ -17,21 +17,30 @@ test.describe("Settings (/settings)", () => {
   });
 
   test("target allocation update is reflected on dashboard", async ({ page }) => {
+    const featureToggle = page.getByLabel(
+      /Enable Target vs Actual Allocation feature|Povolit funkci Cílová vs\. skutečná alokace/i,
+    );
+    await featureToggle.check();
+
     const savingsTargetInput = page.getByRole("spinbutton").nth(1);
     await savingsTargetInput.fill("40");
     await savingsTargetInput.blur();
-    await expect(page.getByText(/Target allocations updated\./i)).toBeVisible();
+    await expect(
+      page.getByText(/Target allocations updated\.|Cílové alokace byly aktualizovány\./i),
+    ).toBeVisible();
 
     await page.goto("/savings");
     await waitForApp(page);
-    await page.getByRole("button", { name: /\+\s*Add Account/i }).click();
+    await page.getByRole("button", { name: /\+\s*Add Account|\+\s*Přidat účet/i }).click();
     await page.locator("input[name='name']").fill("Reserve Fund");
     await page.locator("input[name='bank']").fill("Moneta");
     await page.locator("input[name='balance']").fill("100000");
-    await page.getByRole("button", { name: /Add Account|Save|Uložit/i }).last().click();
+    await page.locator("form button[type='submit']").last().click();
 
     await page.goto("/");
     await waitForApp(page);
-    await expect(page.getByText(/actual 100\.0% · target 40\.0%/i)).toBeVisible();
+    await expect(
+      page.getByText(/actual 100\.0% · target 40\.0%|skutečnost 100\.0% · cíl 40\.0%/i),
+    ).toBeVisible();
   });
 });

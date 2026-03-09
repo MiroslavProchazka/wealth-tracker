@@ -10,6 +10,8 @@ const DEFAULT_RELAY_URL = "wss://free.evoluhq.com";
 export const NET_WORTH_SNAPSHOT_SCHEMA_VERSION = 1;
 export const SNAPSHOT_AUTOMATION_SETTINGS_KEY =
   "wealthTracker_snapshotAutomation";
+export const TARGET_ALLOCATION_FEATURE_ENABLED_KEY =
+  "wealthTracker_targetAllocationFeatureEnabled";
 
 export const getRelayUrl = (): string => {
   if (typeof window === "undefined") return DEFAULT_RELAY_URL;
