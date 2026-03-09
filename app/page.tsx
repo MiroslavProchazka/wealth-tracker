@@ -87,17 +87,6 @@ export default function Dashboard() {
       ),
     [evolu],
   );
-  const receivableQ = useMemo(
-    () =>
-      evolu.createQuery((db) =>
-        db
-          .selectFrom("receivable")
-          .select(["amount", "status", "tags"])
-          .where("isDeleted", "is not", Evolu.sqliteTrue)
-          .where("deleted", "is not", Evolu.sqliteTrue),
-      ),
-    [evolu],
-  );
   const allocationQ = useMemo(
     () =>
       evolu.createQuery((db) =>
@@ -141,7 +130,6 @@ export default function Dashboard() {
   const stocks = useQuery(stockQ);
   const properties = useQuery(propertyQ);
   const savings = useQuery(savingsQ);
-  const receivables = useQuery(receivableQ);
   const allocationTargets = useQuery(allocationQ);
   const portfolioNotes = useQuery(noteQ);
   const snapshots = useQuery(snapshotQ);
@@ -260,12 +248,8 @@ export default function Dashboard() {
     0,
   );
   const savingsValue = savings.reduce((s, sv) => s + (sv.balance as number), 0);
-  const receivablesValue = receivables
-    .filter((item) => String(item.status) !== "PAID")
-    .reduce((sum, item) => sum + (item.amount as number), 0);
 
-  const totalAssets =
-    cryptoValue + stocksValue + propertyValue + savingsValue + receivablesValue;
+  const totalAssets = cryptoValue + stocksValue + propertyValue + savingsValue;
   const totalLiabilities = mortgageDebt;
   const netWorth = totalAssets - totalLiabilities;
   const prevSnapshot = snapshots[1];
@@ -318,7 +302,7 @@ export default function Dashboard() {
     Savings: savingsValue,
     Stocks: stocksValue,
     Crypto: cryptoValue,
-    Receivables: receivablesValue,
+    Receivables: 0,
   };
   const allocationComparison = dashboardAssetClasses.map((assetClass) => {
     const actualPercent =
@@ -343,9 +327,6 @@ export default function Dashboard() {
       parseTags((row as { tags?: string | null }).tags ?? null),
     ),
     ...savings.flatMap((row) =>
-      parseTags((row as { tags?: string | null }).tags ?? null),
-    ),
-    ...receivables.flatMap((row) =>
       parseTags((row as { tags?: string | null }).tags ?? null),
     ),
     ...portfolioNotes.flatMap((row) =>
@@ -387,7 +368,7 @@ export default function Dashboard() {
       stocksValue,
       propertyValue,
       savingsValue,
-      receivablesValue,
+      receivablesValue: 0,
       schemaVersion: NET_WORTH_SNAPSHOT_SCHEMA_VERSION as never,
       deleted: Evolu.sqliteFalse,
     } as never);
@@ -409,7 +390,6 @@ export default function Dashboard() {
     netWorth,
     pricingReady,
     propertyValue,
-    receivablesValue,
     savingsValue,
     stocksValue,
     t,
