@@ -48,6 +48,14 @@ test.describe("Dashboard (/)", () => {
     await expect(page.getByText(/crypto|stocks|property|savings|accounts/i).first()).toBeVisible();
   });
 
+  test("první řádek summary obsahuje jen celková aktiva a závazky", async ({ page }) => {
+    const firstRow = page.locator(".stat-grid").first();
+    await expect(firstRow.locator(".card")).toHaveCount(2);
+    await expect(firstRow.getByText(/total assets|celková aktiva/i)).toBeVisible();
+    await expect(firstRow.getByText(/total liabilities|celkové závazky/i)).toBeVisible();
+    await expect(firstRow.getByRole("link")).toHaveCount(0);
+  });
+
   test("target vs actual sekce je skrytá, dokud se funkce nepovolí", async ({ page }) => {
     await expect(
       page.getByText(/target vs actual allocation|cílová vs\. skutečná alokace/i),
@@ -160,8 +168,8 @@ test.describe("Dashboard (/)", () => {
 
   test("horní summary dlaždice pro sekce jsou klikatelné", async ({ page }) => {
     const statGrid = page.locator(".stat-grid");
-    await expect(statGrid.getByRole("link", { name: /savings/i })).toBeVisible();
-    await expect(statGrid.getByRole("link", { name: /property/i })).toBeVisible();
+    await expect(statGrid.getByRole("link", { name: /savings|spoření/i })).toBeVisible();
+    await expect(statGrid.getByRole("link", { name: /property|nemovitosti/i })).toBeVisible();
     await expect(statGrid.getByRole("link", { name: /stocks|akcie/i })).toBeVisible();
     await expect(statGrid.getByRole("link", { name: /receivables/i })).toHaveCount(0);
     await expect(statGrid.getByRole("link", { name: /crypto/i })).toBeVisible();

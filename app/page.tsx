@@ -324,6 +324,44 @@ export default function Dashboard() {
     { label: "Stocks", value: stocksValue, color: "#f59e0b", href: "/stocks" },
     { label: "Crypto", value: cryptoValue, color: "#f97316", href: "/crypto" },
   ].filter((i) => i.value > 0);
+  const secondaryStatCards = [
+    {
+      key: "Savings",
+      label: t("dashboard.savings"),
+      value: savingsValue,
+      sub: undefined as string | undefined,
+      accent: "var(--green)",
+      icon: <Landmark size={16} />,
+      href: "/savings",
+    },
+    {
+      key: "Property",
+      label: t("dashboard.property"),
+      value: propertyValue,
+      sub: t("dashboard.propertiesCount", { count: properties.length }),
+      accent: "#8b5cf6",
+      icon: <Home size={16} />,
+      href: "/property",
+    },
+    {
+      key: "Stocks",
+      label: t("dashboard.assetClass_stocks"),
+      value: stocksValue,
+      sub: t("dashboard.assetsCount", { count: stocks.length }),
+      accent: "#f59e0b",
+      icon: <TrendingUp size={16} />,
+      href: "/stocks",
+    },
+    {
+      key: "Crypto",
+      label: t("dashboard.crypto"),
+      value: cryptoValue,
+      sub: t("dashboard.assetsCount", { count: cryptos.length }),
+      accent: "#f97316",
+      icon: <Bitcoin size={16} />,
+      href: "/crypto",
+    },
+  ].sort((a, b) => b.value - a.value);
   const total = allocationItems.reduce((s, i) => s + i.value, 0) || 1;
   const targetMap = ASSET_CLASSES.reduce<
     Record<(typeof ASSET_CLASSES)[number], number>
@@ -605,7 +643,13 @@ export default function Dashboard() {
       </div>
 
       {/* ── Stat cards ─────────────────────────────────────────── */}
-      <div className="stat-grid">
+      <div
+        className="stat-grid"
+        style={{
+          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+          marginBottom: "1rem",
+        }}
+      >
         <StatCard
           label={t("dashboard.totalAssets")}
           value={formatCurrency(totalAssets, "CZK")}
@@ -618,37 +662,20 @@ export default function Dashboard() {
           accent="var(--red)"
           icon={<ArrowDown size={16} />}
         />
-        <StatCard
-          label={t("dashboard.savings")}
-          value={formatCurrency(savingsValue, "CZK")}
-          accent="var(--green)"
-          icon={<Landmark size={16} />}
-          href="/savings"
-        />
-        <StatCard
-          label={t("dashboard.property")}
-          value={formatCurrency(propertyValue, "CZK")}
-          sub={t("dashboard.propertiesCount", { count: properties.length })}
-          accent="#8b5cf6"
-          icon={<Home size={16} />}
-          href="/property"
-        />
-        <StatCard
-          label={t("dashboard.assetClass_stocks")}
-          value={formatCurrency(stocksValue, "CZK")}
-          sub={t("dashboard.assetsCount", { count: stocks.length })}
-          accent="#f59e0b"
-          icon={<TrendingUp size={16} />}
-          href="/stocks"
-        />
-        <StatCard
-          label={t("dashboard.crypto")}
-          value={formatCurrency(cryptoValue, "CZK")}
-          sub={t("dashboard.assetsCount", { count: cryptos.length })}
-          accent="#f97316"
-          icon={<Bitcoin size={16} />}
-          href="/crypto"
-        />
+      </div>
+
+      <div className="stat-grid">
+        {secondaryStatCards.map((card) => (
+          <StatCard
+            key={card.key}
+            label={card.label}
+            value={formatCurrency(card.value, "CZK")}
+            sub={card.sub}
+            accent={card.accent}
+            icon={card.icon}
+            href={card.href}
+          />
+        ))}
       </div>
 
       {targetAllocationEnabled && (
