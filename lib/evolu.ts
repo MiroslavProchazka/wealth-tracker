@@ -14,6 +14,8 @@ export const TARGET_ALLOCATION_FEATURE_ENABLED_KEY =
   "wealthTracker_targetAllocationFeatureEnabled";
 export const PORTFOLIO_NOTES_FEATURE_ENABLED_KEY =
   "wealthTracker_portfolioNotesFeatureEnabled";
+export const TAG_CLOUD_FEATURE_ENABLED_KEY =
+  "wealthTracker_tagCloudFeatureEnabled";
 
 export const getRelayUrl = (): string => {
   if (typeof window === "undefined") return DEFAULT_RELAY_URL;

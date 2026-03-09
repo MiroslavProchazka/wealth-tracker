@@ -7,6 +7,7 @@ import {
   NET_WORTH_SNAPSHOT_SCHEMA_VERSION,
   PORTFOLIO_NOTES_FEATURE_ENABLED_KEY,
   SNAPSHOT_AUTOMATION_SETTINGS_KEY,
+  TAG_CLOUD_FEATURE_ENABLED_KEY,
   TARGET_ALLOCATION_FEATURE_ENABLED_KEY,
   useEvolu,
 } from "@/lib/evolu";
@@ -163,6 +164,19 @@ export default function Dashboard() {
       try {
         const stored = window.localStorage.getItem(
           PORTFOLIO_NOTES_FEATURE_ENABLED_KEY,
+        );
+        return stored ? JSON.parse(stored) === true : true;
+      } catch {
+        return true;
+      }
+    },
+  );
+  const [tagCloudEnabled] = useState(
+    () => {
+      if (typeof window === "undefined") return true;
+      try {
+        const stored = window.localStorage.getItem(
+          TAG_CLOUD_FEATURE_ENABLED_KEY,
         );
         return stored ? JSON.parse(stored) === true : true;
       } catch {
@@ -804,15 +818,19 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(0, 1.4fr) minmax(280px, 0.8fr)",
-          gap: "1.5rem",
-          marginTop: "1.5rem",
-        }}
-      >
-        {portfolioNotesEnabled && (
+      {(portfolioNotesEnabled || tagCloudEnabled) && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns:
+              portfolioNotesEnabled && tagCloudEnabled
+                ? "minmax(0, 1.4fr) minmax(280px, 0.8fr)"
+                : "minmax(0, 1fr)",
+            gap: "1.5rem",
+            marginTop: "1.5rem",
+          }}
+        >
+          {portfolioNotesEnabled && (
           <div className="card">
           <div
             style={{
@@ -922,37 +940,40 @@ export default function Dashboard() {
             </div>
           )}
           </div>
-        )}
+          )}
 
-        <div className="card">
-          <h2 style={{ margin: "0 0 1rem", fontSize: "1rem", fontWeight: 700 }}>
-            {t("dashboard.tagCloud")}
-          </h2>
-          {tagCloud.length === 0 ? (
-            <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
-              {t("dashboard.noTags")}
-            </p>
-          ) : (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.55rem" }}>
-              {tagCloud.map((tag) => (
-                <span
-                  key={tag}
-                  style={{
-                    padding: "0.35rem 0.7rem",
-                    borderRadius: "999px",
-                    background: "rgba(16,185,129,0.1)",
-                    border: "1px solid rgba(16,185,129,0.18)",
-                    fontSize: "0.78rem",
-                    color: "var(--foreground)",
-                  }}
-                >
-                  #{tag}
-                </span>
-              ))}
+          {tagCloudEnabled && (
+            <div className="card">
+              <h2 style={{ margin: "0 0 1rem", fontSize: "1rem", fontWeight: 700 }}>
+                {t("dashboard.tagCloud")}
+              </h2>
+              {tagCloud.length === 0 ? (
+                <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
+                  {t("dashboard.noTags")}
+                </p>
+              ) : (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.55rem" }}>
+                  {tagCloud.map((tag) => (
+                    <span
+                      key={tag}
+                      style={{
+                        padding: "0.35rem 0.7rem",
+                        borderRadius: "999px",
+                        background: "rgba(16,185,129,0.1)",
+                        border: "1px solid rgba(16,185,129,0.18)",
+                        fontSize: "0.78rem",
+                        color: "var(--foreground)",
+                      }}
+                    >
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
-      </div>
+      )}
 
       {showNoteModal && (
         <Modal
