@@ -161,27 +161,27 @@ export default function Dashboard() {
   );
   const [portfolioNotesEnabled] = useState(
     () => {
-      if (typeof window === "undefined") return true;
+      if (typeof window === "undefined") return false;
       try {
         const stored = window.localStorage.getItem(
           PORTFOLIO_NOTES_FEATURE_ENABLED_KEY,
         );
-        return stored ? JSON.parse(stored) === true : true;
+        return stored ? JSON.parse(stored) === true : false;
       } catch {
-        return true;
+        return false;
       }
     },
   );
   const [tagCloudEnabled] = useState(
     () => {
-      if (typeof window === "undefined") return true;
+      if (typeof window === "undefined") return false;
       try {
         const stored = window.localStorage.getItem(
           TAG_CLOUD_FEATURE_ENABLED_KEY,
         );
-        return stored ? JSON.parse(stored) === true : true;
+        return stored ? JSON.parse(stored) === true : false;
       } catch {
-        return true;
+        return false;
       }
     },
   );
