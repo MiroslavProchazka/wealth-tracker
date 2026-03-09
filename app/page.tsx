@@ -26,7 +26,6 @@ import {
   Landmark,
   Bitcoin,
   Home,
-  NotebookPen,
 } from "lucide-react";
 
 export default function Dashboard() {
@@ -36,10 +35,12 @@ export default function Dashboard() {
   const assetClassLabels: Record<string, string> = {
     Property: t("dashboard.assetClass_property"),
     Savings: t("dashboard.assetClass_savings"),
-    Receivables: t("dashboard.assetClass_receivables"),
     Stocks: t("dashboard.assetClass_stocks"),
     Crypto: t("dashboard.assetClass_crypto"),
   };
+  const dashboardAssetClasses = ASSET_CLASSES.filter(
+    (assetClass) => assetClass !== "Receivables",
+  );
 
   // ── Queries ────────────────────────────────────────────────────────────────
   const cryptoQ = useMemo(
@@ -293,12 +294,6 @@ export default function Dashboard() {
       color: "#10b981",
       href: "/savings",
     },
-    {
-      label: "Receivables",
-      value: receivablesValue,
-      color: "#06b6d4",
-      href: "/receivables",
-    },
     { label: "Stocks", value: stocksValue, color: "#f59e0b", href: "/stocks" },
     { label: "Crypto", value: cryptoValue, color: "#f97316", href: "/crypto" },
   ].filter((i) => i.value > 0);
@@ -325,7 +320,7 @@ export default function Dashboard() {
     Crypto: cryptoValue,
     Receivables: receivablesValue,
   };
-  const allocationComparison = ASSET_CLASSES.map((assetClass) => {
+  const allocationComparison = dashboardAssetClasses.map((assetClass) => {
     const actualPercent =
       totalAssets > 0 ? (actualMap[assetClass] / totalAssets) * 100 : 0;
     const targetPercent = targetMap[assetClass];
@@ -614,13 +609,6 @@ export default function Dashboard() {
           accent="#8b5cf6"
           icon={<Home size={16} />}
           href="/property"
-        />
-        <StatCard
-          label={t("dashboard.receivables")}
-          value={formatCurrency(receivablesValue, "CZK")}
-          accent="#06b6d4"
-          icon={<NotebookPen size={16} />}
-          href="/receivables"
         />
         <StatCard
           label={t("dashboard.crypto")}
