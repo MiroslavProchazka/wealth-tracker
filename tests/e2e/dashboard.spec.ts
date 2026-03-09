@@ -162,6 +162,7 @@ test.describe("Dashboard (/)", () => {
     const statGrid = page.locator(".stat-grid");
     await expect(statGrid.getByRole("link", { name: /savings/i })).toBeVisible();
     await expect(statGrid.getByRole("link", { name: /property/i })).toBeVisible();
+    await expect(statGrid.getByRole("link", { name: /stocks|akcie/i })).toBeVisible();
     await expect(statGrid.getByRole("link", { name: /receivables/i })).toHaveCount(0);
     await expect(statGrid.getByRole("link", { name: /crypto/i })).toBeVisible();
     await expect(page.getByText("Quick Access")).toHaveCount(0);
@@ -170,6 +171,11 @@ test.describe("Dashboard (/)", () => {
   test("klik na Property summary dlaždici otevře property stránku", async ({ page }) => {
     await page.locator(".stat-grid").getByRole("link", { name: /property/i }).click();
     await expect(page).toHaveURL("/property");
+  });
+
+  test("klik na Stocks summary dlaždici otevře stocks stránku", async ({ page }) => {
+    await page.locator(".stat-grid").getByRole("link", { name: /stocks|akcie/i }).click();
+    await expect(page).toHaveURL("/stocks");
   });
 
   test("aktivní sidebar odkaz má gradient pozadí", async ({ page }) => {

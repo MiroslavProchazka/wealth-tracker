@@ -29,6 +29,7 @@ import {
   Landmark,
   Bitcoin,
   Home,
+  TrendingUp,
 } from "lucide-react";
 
 export default function Dashboard() {
@@ -631,6 +632,14 @@ export default function Dashboard() {
           accent="#8b5cf6"
           icon={<Home size={16} />}
           href="/property"
+        />
+        <StatCard
+          label={t("dashboard.assetClass_stocks")}
+          value={formatCurrency(stocksValue, "CZK")}
+          sub={t("dashboard.assetsCount", { count: stocks.length })}
+          accent="#f59e0b"
+          icon={<TrendingUp size={16} />}
+          href="/stocks"
         />
         <StatCard
           label={t("dashboard.crypto")}
