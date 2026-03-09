@@ -45,10 +45,10 @@ describe("Sidebar", () => {
       mockUsePathname.mockReturnValue("/");
     });
 
-    it("renderuje přesně 14 navigačních odkazů (7 desktop + 7 mobile)", () => {
+    it("renderuje přesně 16 navigačních odkazů (8 desktop + 8 mobile)", () => {
       render(<Sidebar />);
       const links = screen.getAllByRole("link");
-      expect(links).toHaveLength(14);
+      expect(links).toHaveLength(16);
     });
 
     const navItems = [
@@ -58,6 +58,7 @@ describe("Sidebar", () => {
       { label: "Nemovitosti", href: "/property" },
       { label: "Spoření", href: "/savings" },
       { label: "Historie", href: "/history" },
+      { label: "Účet", href: "/account", exact: true },
       { label: "Nastavení", href: "/settings", exact: true },
     ];
 
@@ -127,9 +128,9 @@ describe("Sidebar", () => {
 
     it("každý nav item má SVG ikonu", () => {
       render(<Sidebar />);
-      // 2 nav elementy (desktop + mobile), každý má 7 SVG ikon → celkem 14
+      // 2 nav elementy (desktop + mobile), každý má 8 SVG ikon → celkem 16
       const svgs = document.querySelectorAll("nav svg");
-      expect(svgs.length).toBe(14);
+      expect(svgs.length).toBe(16);
     });
 
     it("SVG ikony mají správné rozměry (16×16)", () => {
