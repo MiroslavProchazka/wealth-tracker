@@ -68,6 +68,36 @@ test.describe("Dashboard (/)", () => {
     ).toBeVisible();
   });
 
+  test("portfolio notes sekce je skrytá, dokud se funkce nepovolí", async ({ page }) => {
+    await page.goto("/settings");
+    await waitForApp(page);
+    await page
+      .getByLabel(
+        /Show Portfolio Notes on dashboard|Zobrazovat Portfolio poznámky na dashboardu/i,
+      )
+      .uncheck();
+
+    await page.goto("/");
+    await waitForApp(page);
+    await expect(
+      page.getByRole("heading", { name: /portfolio notes|portfolio poznámky/i }),
+    ).toHaveCount(0);
+
+    await page.goto("/settings");
+    await waitForApp(page);
+    await page
+      .getByLabel(
+        /Show Portfolio Notes on dashboard|Zobrazovat Portfolio poznámky na dashboardu/i,
+      )
+      .check();
+
+    await page.goto("/");
+    await waitForApp(page);
+    await expect(
+      page.getByRole("heading", { name: /portfolio notes|portfolio poznámky/i }),
+    ).toBeVisible();
+  });
+
   test("navigace na Crypto skrze quick link", async ({ page }) => {
     // Klik na Crypto v sidebaru
     await page.locator("aside").getByRole("link", { name: /Crypto/i }).click();

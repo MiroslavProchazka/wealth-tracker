@@ -5,6 +5,7 @@ import * as Evolu from "@evolu/common";
 import { useQuery } from "@evolu/react";
 import {
   NET_WORTH_SNAPSHOT_SCHEMA_VERSION,
+  PORTFOLIO_NOTES_FEATURE_ENABLED_KEY,
   SNAPSHOT_AUTOMATION_SETTINGS_KEY,
   TARGET_ALLOCATION_FEATURE_ENABLED_KEY,
   useEvolu,
@@ -153,6 +154,19 @@ export default function Dashboard() {
         return stored ? JSON.parse(stored) === true : false;
       } catch {
         return false;
+      }
+    },
+  );
+  const [portfolioNotesEnabled] = useState(
+    () => {
+      if (typeof window === "undefined") return true;
+      try {
+        const stored = window.localStorage.getItem(
+          PORTFOLIO_NOTES_FEATURE_ENABLED_KEY,
+        );
+        return stored ? JSON.parse(stored) === true : true;
+      } catch {
+        return true;
       }
     },
   );
@@ -798,7 +812,8 @@ export default function Dashboard() {
           marginTop: "1.5rem",
         }}
       >
-        <div className="card">
+        {portfolioNotesEnabled && (
+          <div className="card">
           <div
             style={{
               display: "flex",
@@ -906,7 +921,8 @@ export default function Dashboard() {
               ))}
             </div>
           )}
-        </div>
+          </div>
+        )}
 
         <div className="card">
           <h2 style={{ margin: "0 0 1rem", fontSize: "1rem", fontWeight: 700 }}>
