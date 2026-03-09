@@ -86,7 +86,7 @@ test.describe("Dashboard (/)", () => {
     const statGrid = page.locator(".stat-grid");
     await expect(statGrid.getByRole("link", { name: /savings/i })).toBeVisible();
     await expect(statGrid.getByRole("link", { name: /property/i })).toBeVisible();
-    await expect(statGrid.getByRole("link", { name: /receivables/i })).toBeVisible();
+    await expect(statGrid.getByRole("link", { name: /receivables/i })).toHaveCount(0);
     await expect(statGrid.getByRole("link", { name: /crypto/i })).toBeVisible();
     await expect(page.getByText("Quick Access")).toHaveCount(0);
   });
