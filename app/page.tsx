@@ -214,6 +214,10 @@ export default function Dashboard() {
     const keys = readMarketApiKeys();
     return Boolean(keys.coingecko || keys.yahooFinance);
   });
+  const [compactCurrency, setCompactCurrency] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(max-width: 768px)").matches;
+  });
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -221,6 +225,21 @@ export default function Dashboard() {
       setTodayKey((current) => (current === today ? current : today));
     }, 60_000);
     return () => window.clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mediaQuery = window.matchMedia("(max-width: 768px)");
+    const onChange = (event: MediaQueryListEvent) =>
+      setCompactCurrency(event.matches);
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener("change", onChange);
+      return () => mediaQuery.removeEventListener("change", onChange);
+    }
+
+    mediaQuery.addListener(onChange);
+    return () => mediaQuery.removeListener(onChange);
   }, []);
 
   useEffect(() => {
@@ -609,7 +628,7 @@ export default function Dashboard() {
                   : t("dashboard.marketDataSetupBodyNoKeys")}
             </div>
           </div>
-          <Link href="/settings#market-data" className="btn-primary">
+          <Link href="/account#market-data" className="btn-primary">
             {t("dashboard.openMarketSettings")}
           </Link>
         </div>
@@ -664,7 +683,7 @@ export default function Dashboard() {
             fontVariantNumeric: "tabular-nums",
           }}
         >
-          {formatCurrency(netWorth, "CZK")}
+          {formatCurrency(netWorth, "CZK", compactCurrency)}
         </div>
         {change !== 0 && (
           <div
@@ -678,7 +697,7 @@ export default function Dashboard() {
           >
             {change >= 0 ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
             {t("dashboard.changeFromLastSnapshot", {
-              value: formatCurrency(Math.abs(change), "CZK"),
+              value: formatCurrency(Math.abs(change), "CZK", compactCurrency),
             })}
           </div>
         )}
@@ -703,13 +722,13 @@ export default function Dashboard() {
       >
         <StatCard
           label={t("dashboard.totalAssets")}
-          value={formatCurrency(totalAssets, "CZK")}
+          value={formatCurrency(totalAssets, "CZK", compactCurrency)}
           accent="var(--green)"
           icon={<ArrowUp size={16} />}
         />
         <StatCard
           label={t("dashboard.totalLiabilities")}
-          value={formatCurrency(totalLiabilities, "CZK")}
+          value={formatCurrency(totalLiabilities, "CZK", compactCurrency)}
           accent="var(--red)"
           icon={<ArrowDown size={16} />}
         />
@@ -720,7 +739,7 @@ export default function Dashboard() {
           <StatCard
             key={card.key}
             label={card.label}
-            value={formatCurrency(card.value, "CZK")}
+            value={formatCurrency(card.value, "CZK", compactCurrency)}
             sub={card.sub}
             accent={card.accent}
             icon={card.icon}
@@ -876,7 +895,7 @@ export default function Dashboard() {
                             fontWeight: 500,
                           }}
                         >
-                          {formatCurrency(item.value, "CZK")} · {pct.toFixed(1)}
+                          {formatCurrency(item.value, "CZK", compactCurrency)} · {pct.toFixed(1)}
                           %
                         </span>
                       </div>

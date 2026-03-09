@@ -73,7 +73,6 @@ export default function Sidebar() {
     { href: "/savings", label: t("sidebar.savings"), icon: Icons.savings },
     { href: "/history", label: t("sidebar.history"), icon: Icons.history },
     { href: "/account", label: t("sidebar.account"), icon: Icons.settings },
-    { href: "/settings", label: t("sidebar.settings"), icon: Icons.settings },
   ];
   const toneStyles = {
     ok: {
@@ -300,7 +299,7 @@ export default function Sidebar() {
             return (
               <Link
                 key={`${item.label}-${item.value}`}
-                href="/settings#market-data"
+                href="/account#market-data"
                 style={{ textDecoration: "none" }}
               >
                 {statusChip}
