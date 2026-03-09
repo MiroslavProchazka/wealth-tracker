@@ -454,12 +454,13 @@ export default function Dashboard() {
       stockStatus.fetchedAt !== null ||
       stockStatus.error !== null);
   const hasMarketTrackedAssets = cryptos.length > 0 || stocks.length > 0;
-  const marketDataNeedsSetup =
-    !hasCustomMarketKeys ||
+  const hasMarketFetchIssues =
     (cryptos.length > 0 &&
       (cryptoStatus.error !== null || cryptoStatus.fetchedAt === null)) ||
     (stocks.length > 0 &&
       (stockStatus.error !== null || stockStatus.fetchedAt === null));
+  const marketDataNeedsSetup =
+    hasMarketFetchIssues || (!hasMarketTrackedAssets && !hasCustomMarketKeys);
 
   useEffect(() => {
     if (!pricingReady) return;
