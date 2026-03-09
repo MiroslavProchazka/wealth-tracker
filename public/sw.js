@@ -1,11 +1,11 @@
-const CACHE = 'wealth-tracker-v2';
+const CACHE = 'wealth-tracker-v1';
 
 // Static assets to precache
 const PRECACHE = [
   '/manifest.json',
-  '/icon-192-v2.png',
-  '/icon-512-v2.png',
-  '/apple-touch-icon-v2.png',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/apple-touch-icon.png',
 ];
 
 self.addEventListener('install', (e) => {

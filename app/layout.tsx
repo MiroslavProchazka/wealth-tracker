@@ -18,8 +18,7 @@ export const metadata: Metadata = {
     title: "Wealth Tracker",
   },
   icons: {
-    icon: "/icon-512-v2.png",
-    apple: "/apple-touch-icon-v2.png",
+    apple: "/apple-touch-icon.png",
   },
 };
 
