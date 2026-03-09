@@ -756,9 +756,9 @@ export default function Dashboard() {
       {/* ── Bottom row ─────────────────────────────────────────── */}
       <div style={{ marginBottom: "1.5rem" }}>
         {/* Asset Allocation */}
-        <div className="card">
+        <div className="card" style={{ padding: "1.5rem 1.5rem 1.6rem" }}>
           <h2
-            style={{ margin: "0 0 1.25rem", fontSize: "1rem", fontWeight: 700 }}
+            style={{ margin: "0 0 1.4rem", fontSize: "1.15rem", fontWeight: 700 }}
           >
             {t("dashboard.assetAllocation")}
           </h2>
@@ -771,7 +771,7 @@ export default function Dashboard() {
               style={{
                 display: "flex",
                 flexDirection: "column",
-                gap: "0.75rem",
+                gap: "1rem",
               }}
             >
               {allocationItems.map((item) => {
@@ -786,7 +786,7 @@ export default function Dashboard() {
                       style={{
                         display: "flex",
                         flexDirection: "column",
-                        gap: "0.35rem",
+                        gap: "0.5rem",
                       }}
                     >
                       <div
@@ -798,30 +798,31 @@ export default function Dashboard() {
                       >
                         <span
                           style={{
-                            fontSize: "0.8rem",
+                            fontSize: "0.92rem",
                             color: "var(--foreground)",
                             display: "flex",
                             alignItems: "center",
-                            gap: "0.5rem",
+                            gap: "0.6rem",
                           }}
                         >
                           <span
                             style={{
                               display: "inline-block",
-                              width: "8px",
-                              height: "8px",
+                              width: "10px",
+                              height: "10px",
                               borderRadius: "50%",
                               background: item.color,
-                              boxShadow: `0 0 6px ${item.color}80`,
+                              boxShadow: `0 0 8px ${item.color}80`,
                             }}
                           />
                           {assetClassLabels[item.label] ?? item.label}
                         </span>
                         <span
                           style={{
-                            fontSize: "0.8rem",
+                            fontSize: "0.95rem",
                             color: "var(--muted)",
                             fontFeatureSettings: '"tnum"',
+                            fontWeight: 500,
                           }}
                         >
                           {formatCurrency(item.value, "CZK")} · {pct.toFixed(1)}
@@ -830,16 +831,16 @@ export default function Dashboard() {
                       </div>
                       <div
                         style={{
-                          height: "4px",
+                          height: "7px",
                           background: "var(--surface-3)",
-                          borderRadius: "2px",
+                          borderRadius: "999px",
                         }}
                       >
                         <div
                           style={{
                             height: "100%",
                             background: `linear-gradient(90deg, ${item.color} 0%, ${item.color}88 100%)`,
-                            borderRadius: "2px",
+                            borderRadius: "999px",
                             width: `${pct}%`,
                             transition: "width 0.3s ease",
                           }}
