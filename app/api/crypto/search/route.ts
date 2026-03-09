@@ -36,7 +36,8 @@ export async function GET(req: Request) {
 
   // Fall back to CoinGecko search API
   try {
-    const apiKey = process.env.COINGECKO_API_KEY;
+    const customKey = req.headers.get("x-wt-coingecko-api-key")?.trim();
+    const apiKey = customKey || process.env.COINGECKO_API_KEY;
     const headers: Record<string, string> = { Accept: "application/json" };
     if (apiKey) headers["x-cg-demo-api-key"] = apiKey;
 

@@ -58,7 +58,7 @@ describe("Sidebar", () => {
       { label: "Nemovitosti", href: "/property" },
       { label: "Spoření", href: "/savings" },
       { label: "Historie", href: "/history" },
-      { label: "Účet", href: "/settings", exact: true },
+      { label: "Nastavení", href: "/settings", exact: true },
     ];
 
     it.each(navItems)("$label má href '$href'", ({ href }) => {

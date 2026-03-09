@@ -6,6 +6,7 @@ import { useQuery } from "@evolu/react";
 import { useDashboardStatus } from "@/components/DashboardStatusContext";
 import { useI18n } from "@/components/i18n/I18nProvider";
 import { useEvolu } from "@/lib/evolu";
+import { withMarketApiHeaders } from "@/lib/marketApiKeys";
 import { formatCompactMarketStatus } from "@/lib/marketStatus";
 
 export default function SidebarStatusSync() {
@@ -80,7 +81,10 @@ export default function SidebarStatusSync() {
 
     if (symbols.length === 0) return;
 
-    fetch(`/api/crypto/prices?symbols=${encodeURIComponent(symbols.join(","))}`)
+    fetch(
+      `/api/crypto/prices?symbols=${encodeURIComponent(symbols.join(","))}`,
+      withMarketApiHeaders(),
+    )
       .then(async (response) => {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error ?? `HTTP ${response.status}`);
@@ -107,7 +111,10 @@ export default function SidebarStatusSync() {
 
     if (tickers.length === 0) return;
 
-    fetch(`/api/stocks/prices?tickers=${encodeURIComponent(tickers.join(","))}`)
+    fetch(
+      `/api/stocks/prices?tickers=${encodeURIComponent(tickers.join(","))}`,
+      withMarketApiHeaders(),
+    )
       .then(async (response) => {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error ?? `HTTP ${response.status}`);

@@ -23,7 +23,121 @@ import {
   DEFAULT_ALLOCATION_TARGETS,
   DEFAULT_SNAPSHOT_AUTOMATION_SETTINGS,
 } from "@/lib/portfolio";
+import {
+  readMarketApiKeys,
+  saveMarketApiKeys,
+  withMarketApiHeaders,
+} from "@/lib/marketApiKeys";
 import { useI18n } from "@/components/i18n/I18nProvider";
+
+interface ProviderConnectionState {
+  checkedAt: string | null;
+  successAt: string | null;
+  error: string | null;
+  retryAfter: string | null;
+}
+
+interface EncryptedMarketKeysPayload {
+  v: 1;
+  createdAt: string;
+  salt: string;
+  iv: string;
+  ciphertext: string;
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  const chunk = 0x8000;
+  let output = "";
+  for (let i = 0; i < bytes.length; i += chunk) {
+    output += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(output);
+}
+
+function base64ToBytes(value: string): Uint8Array {
+  const raw = atob(value);
+  const bytes = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) {
+    bytes[i] = raw.charCodeAt(i);
+  }
+  return bytes;
+}
+
+async function deriveEncryptionKey(
+  passphrase: string,
+  salt: Uint8Array,
+): Promise<CryptoKey> {
+  const encoder = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(passphrase),
+    "PBKDF2",
+    false,
+    ["deriveKey"],
+  );
+
+  return crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      hash: "SHA-256",
+      salt: salt as unknown as BufferSource,
+      iterations: 150_000,
+    },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"],
+  );
+}
+
+async function encryptMarketKeysPayload(
+  keys: { coingecko: string; yahooFinance: string },
+  passphrase: string,
+): Promise<EncryptedMarketKeysPayload> {
+  const encoder = new TextEncoder();
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveEncryptionKey(passphrase, salt);
+
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: iv as unknown as BufferSource },
+    key,
+    encoder.encode(JSON.stringify(keys)),
+  );
+
+  return {
+    v: 1,
+    createdAt: new Date().toISOString(),
+    salt: bytesToBase64(salt),
+    iv: bytesToBase64(iv),
+    ciphertext: bytesToBase64(new Uint8Array(ciphertext)),
+  };
+}
+
+async function decryptMarketKeysPayload(
+  payload: EncryptedMarketKeysPayload,
+  passphrase: string,
+): Promise<{ coingecko: string; yahooFinance: string }> {
+  const salt = base64ToBytes(payload.salt);
+  const iv = base64ToBytes(payload.iv);
+  const ciphertext = base64ToBytes(payload.ciphertext);
+  const key = await deriveEncryptionKey(passphrase, salt);
+  const plaintext = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: iv as unknown as BufferSource },
+    key,
+    ciphertext as unknown as BufferSource,
+  );
+  const decoded = new TextDecoder().decode(plaintext);
+  const parsed = JSON.parse(decoded) as Partial<{
+    coingecko: string;
+    yahooFinance: string;
+  }>;
+
+  return {
+    coingecko: (parsed.coingecko ?? "").trim(),
+    yahooFinance: (parsed.yahooFinance ?? "").trim(),
+  };
+}
 
 // Inner component — loads appOwner async to avoid SSR suspend (use() hangs in Node.js)
 function SettingsContent() {
@@ -102,6 +216,41 @@ function SettingsContent() {
   const [savedRelay, setSavedRelay] = useState("");
   const [relayStatus, setRelayStatus] = useState<null | boolean>(null);
   const [reconnecting, setReconnecting] = useState(false);
+  const [coingeckoApiKey, setCoingeckoApiKey] = useState("");
+  const [yahooFinanceApiKey, setYahooFinanceApiKey] = useState("");
+  const [marketSettingsStatus, setMarketSettingsStatus] = useState<string | null>(
+    null,
+  );
+  const [marketSettingsStatusTone, setMarketSettingsStatusTone] = useState<
+    "neutral" | "ok" | "warning" | "error"
+  >("neutral");
+  const [testingMarketKeys, setTestingMarketKeys] = useState(false);
+  const [marketSecretPhrase, setMarketSecretPhrase] = useState("");
+  const [marketKeyTransferStatus, setMarketKeyTransferStatus] = useState<
+    string | null
+  >(null);
+  const [marketKeyTransferTone, setMarketKeyTransferTone] = useState<
+    "neutral" | "ok" | "warning" | "error"
+  >("neutral");
+  const [importingMarketKeyBundle, setImportingMarketKeyBundle] = useState(false);
+  const marketKeyImportInputRef = useRef<HTMLInputElement | null>(null);
+  const [providerStatus, setProviderStatus] = useState<{
+    coingecko: ProviderConnectionState;
+    stocks: ProviderConnectionState;
+  }>({
+    coingecko: {
+      checkedAt: null,
+      successAt: null,
+      error: null,
+      retryAfter: null,
+    },
+    stocks: {
+      checkedAt: null,
+      successAt: null,
+      error: null,
+      retryAfter: null,
+    },
+  });
 
   const cryptoQ = useMemo(
     () =>
@@ -217,6 +366,12 @@ function SettingsContent() {
     const url = getRelayUrl();
     setRelayUrlState(url);
     setSavedRelay(url);
+  }, []);
+
+  useEffect(() => {
+    const keys = readMarketApiKeys();
+    setCoingeckoApiKey(keys.coingecko);
+    setYahooFinanceApiKey(keys.yahooFinance);
   }, []);
 
   useEffect(() => {
@@ -538,6 +693,239 @@ function SettingsContent() {
     );
   }
 
+  function getMarketRequestInitFromDraft(): RequestInit {
+    const init = withMarketApiHeaders();
+    const headers = new Headers(init.headers);
+
+    const coingecko = coingeckoApiKey.trim();
+    const yahoo = yahooFinanceApiKey.trim();
+
+    if (coingecko) headers.set("x-wt-coingecko-api-key", coingecko);
+    else headers.delete("x-wt-coingecko-api-key");
+
+    if (yahoo) headers.set("x-wt-yahoo-finance-api-key", yahoo);
+    else headers.delete("x-wt-yahoo-finance-api-key");
+
+    return { ...init, headers };
+  }
+
+  function setProviderState(
+    provider: "coingecko" | "stocks",
+    update: Partial<ProviderConnectionState>,
+  ) {
+    setProviderStatus((current) => ({
+      ...current,
+      [provider]: {
+        ...current[provider],
+        ...update,
+      },
+    }));
+  }
+
+  function formatProviderTime(value: string | null): string {
+    if (!value) return t("settings.marketProviderNever");
+    return new Date(value).toLocaleString();
+  }
+
+  function handleSaveMarketApiKeys() {
+    saveMarketApiKeys({
+      coingecko: coingeckoApiKey,
+      yahooFinance: yahooFinanceApiKey,
+    });
+    setCoingeckoApiKey(coingeckoApiKey.trim());
+    setYahooFinanceApiKey(yahooFinanceApiKey.trim());
+    setMarketSettingsStatus(t("settings.marketKeysSaved"));
+    setMarketSettingsStatusTone("ok");
+  }
+
+  function handleClearMarketApiKeys() {
+    setCoingeckoApiKey("");
+    setYahooFinanceApiKey("");
+    saveMarketApiKeys({
+      coingecko: "",
+      yahooFinance: "",
+    });
+    setMarketSettingsStatus(t("settings.marketKeysCleared"));
+    setMarketSettingsStatusTone("warning");
+  }
+
+  async function handleExportEncryptedMarketKeys() {
+    const passphrase = (marketSecretPhrase || mnemonic).trim();
+    if (!passphrase) {
+      setMarketKeyTransferStatus(t("settings.marketKeyTransferPassphraseRequired"));
+      setMarketKeyTransferTone("warning");
+      return;
+    }
+
+    const payload = await encryptMarketKeysPayload(
+      {
+        coingecko: coingeckoApiKey.trim(),
+        yahooFinance: yahooFinanceApiKey.trim(),
+      },
+      passphrase,
+    );
+
+    const fileName = `wealth-tracker-market-keys-${new Date().toISOString().slice(0, 10)}.enc.json`;
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(url);
+
+    setMarketKeyTransferStatus(t("settings.marketKeyTransferExported", { fileName }));
+    setMarketKeyTransferTone("ok");
+  }
+
+  async function handleImportEncryptedMarketKeys(
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const passphrase = (marketSecretPhrase || mnemonic).trim();
+    if (!passphrase) {
+      setMarketKeyTransferStatus(t("settings.marketKeyTransferPassphraseRequired"));
+      setMarketKeyTransferTone("warning");
+      event.target.value = "";
+      return;
+    }
+
+    setImportingMarketKeyBundle(true);
+    try {
+      const content = await file.text();
+      const payload = JSON.parse(content) as Partial<EncryptedMarketKeysPayload>;
+      if (
+        payload.v !== 1 ||
+        typeof payload.salt !== "string" ||
+        typeof payload.iv !== "string" ||
+        typeof payload.ciphertext !== "string"
+      ) {
+        throw new Error("Invalid payload");
+      }
+
+      const decrypted = await decryptMarketKeysPayload(
+        payload as EncryptedMarketKeysPayload,
+        passphrase,
+      );
+
+      setCoingeckoApiKey(decrypted.coingecko);
+      setYahooFinanceApiKey(decrypted.yahooFinance);
+      saveMarketApiKeys(decrypted);
+      setMarketKeyTransferStatus(t("settings.marketKeyTransferImported"));
+      setMarketKeyTransferTone("ok");
+      setMarketSettingsStatus(t("settings.marketKeysSaved"));
+      setMarketSettingsStatusTone("ok");
+    } catch {
+      setMarketKeyTransferStatus(t("settings.marketKeyTransferImportFailed"));
+      setMarketKeyTransferTone("error");
+    } finally {
+      setImportingMarketKeyBundle(false);
+      event.target.value = "";
+    }
+  }
+
+  async function handleTestMarketApiKeys() {
+    setTestingMarketKeys(true);
+    setMarketSettingsStatus(null);
+    setMarketSettingsStatusTone("neutral");
+
+    const marketInit = getMarketRequestInitFromDraft();
+
+    try {
+      const [cryptoResult, stocksResult] = await Promise.allSettled([
+        fetch("/api/crypto/prices?symbols=BTC", marketInit),
+        fetch("/api/stocks/prices?tickers=AAPL", marketInit),
+      ]);
+
+      const cryptoOk =
+        cryptoResult.status === "fulfilled" && cryptoResult.value.ok;
+      const stocksOk =
+        stocksResult.status === "fulfilled" && stocksResult.value.ok;
+      const checkedAt = new Date().toISOString();
+
+      if (cryptoResult.status === "fulfilled") {
+        let errorMessage: string | null = null;
+        if (!cryptoResult.value.ok) {
+          try {
+            const errorPayload = (await cryptoResult.value.clone().json()) as {
+              error?: string;
+            };
+            errorMessage = errorPayload.error ?? `HTTP ${cryptoResult.value.status}`;
+          } catch {
+            errorMessage = `HTTP ${cryptoResult.value.status}`;
+          }
+        }
+
+        setProviderState("coingecko", {
+          checkedAt,
+          successAt: cryptoResult.value.ok ? checkedAt : providerStatus.coingecko.successAt,
+          error: errorMessage,
+          retryAfter: cryptoResult.value.headers.get("Retry-After"),
+        });
+      } else {
+        setProviderState("coingecko", {
+          checkedAt,
+          error: cryptoResult.reason instanceof Error ? cryptoResult.reason.message : "Request failed",
+        });
+      }
+
+      if (stocksResult.status === "fulfilled") {
+        let errorMessage: string | null = null;
+        if (!stocksResult.value.ok) {
+          try {
+            const errorPayload = (await stocksResult.value.clone().json()) as {
+              error?: string;
+            };
+            errorMessage = errorPayload.error ?? `HTTP ${stocksResult.value.status}`;
+          } catch {
+            errorMessage = `HTTP ${stocksResult.value.status}`;
+          }
+        }
+        setProviderState("stocks", {
+          checkedAt,
+          successAt: stocksResult.value.ok ? checkedAt : providerStatus.stocks.successAt,
+          error: errorMessage,
+          retryAfter: stocksResult.value.headers.get("Retry-After"),
+        });
+      } else {
+        setProviderState("stocks", {
+          checkedAt,
+          error: stocksResult.reason instanceof Error ? stocksResult.reason.message : "Request failed",
+        });
+      }
+
+      if (cryptoOk && stocksOk) {
+        setMarketSettingsStatus(t("settings.marketTestAllOk"));
+        setMarketSettingsStatusTone("ok");
+        return;
+      }
+
+      if (cryptoOk && !stocksOk) {
+        setMarketSettingsStatus(t("settings.marketTestStocksFailed"));
+        setMarketSettingsStatusTone("warning");
+        return;
+      }
+
+      if (!cryptoOk && stocksOk) {
+        setMarketSettingsStatus(t("settings.marketTestCryptoFailed"));
+        setMarketSettingsStatusTone("warning");
+        return;
+      }
+
+      setMarketSettingsStatus(t("settings.marketTestFailed"));
+      setMarketSettingsStatusTone("error");
+    } catch {
+      setMarketSettingsStatus(t("settings.marketTestFailed"));
+      setMarketSettingsStatusTone("error");
+    } finally {
+      setTestingMarketKeys(false);
+    }
+  }
+
   return (
     <div style={{ maxWidth: "640px" }}>
       <div style={{ marginBottom: "2rem" }}>
@@ -547,6 +935,216 @@ function SettingsContent() {
         <p style={{ color: "var(--muted)", margin: "0.35rem 0 0", fontSize: "0.875rem" }}>
           {t("settings.subtitle")}
         </p>
+      </div>
+
+      <div
+        id="market-data"
+        className="card"
+        style={{
+          marginBottom: "1.5rem",
+          background:
+            "linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(6,182,212,0.06) 100%)",
+        }}
+      >
+        <h2 style={{ margin: "0 0 0.5rem", fontSize: "1rem", fontWeight: 700 }}>
+          📈 {t("settings.marketKeysTitle")}
+        </h2>
+        <p style={{ color: "var(--muted)", fontSize: "0.8rem", margin: "0 0 1rem" }}>
+          {t("settings.marketKeysDescription")}
+        </p>
+
+        <div style={{ display: "grid", gap: "0.85rem" }}>
+          <div>
+            <label style={{ marginBottom: "0.35rem" }}>
+              {t("settings.coingeckoApiKey")}
+            </label>
+            <input
+              type="password"
+              value={coingeckoApiKey}
+              onChange={(e) => setCoingeckoApiKey(e.target.value)}
+              placeholder={t("settings.coingeckoApiKeyPlaceholder")}
+              autoComplete="off"
+            />
+          </div>
+          <div>
+            <label style={{ marginBottom: "0.35rem" }}>
+              {t("settings.yahooApiKey")}
+            </label>
+            <input
+              type="password"
+              value={yahooFinanceApiKey}
+              onChange={(e) => setYahooFinanceApiKey(e.target.value)}
+              placeholder={t("settings.yahooApiKeyPlaceholder")}
+              autoComplete="off"
+            />
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem", flexWrap: "wrap" }}>
+          <button className="btn-primary" onClick={handleSaveMarketApiKeys}>
+            {t("settings.saveMarketKeys")}
+          </button>
+          <button
+            className="btn-ghost"
+            onClick={handleTestMarketApiKeys}
+            disabled={testingMarketKeys}
+          >
+            {testingMarketKeys ? t("common.loading") : t("settings.testMarketKeys")}
+          </button>
+          <button className="btn-ghost" onClick={handleClearMarketApiKeys}>
+            {t("settings.clearMarketKeys")}
+          </button>
+        </div>
+
+        <div
+          style={{
+            marginTop: "0.9rem",
+            fontSize: "0.8rem",
+            color:
+              marketSettingsStatusTone === "ok"
+                ? "var(--green)"
+                : marketSettingsStatusTone === "warning"
+                  ? "var(--yellow)"
+                  : marketSettingsStatusTone === "error"
+                    ? "var(--red)"
+                    : "var(--muted)",
+          }}
+        >
+          {marketSettingsStatus ?? t("settings.marketKeysHint")}
+        </div>
+
+        <div
+          style={{
+            marginTop: "1rem",
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: "0.75rem",
+          }}
+        >
+          <div
+            style={{
+              border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: "10px",
+              padding: "0.7rem 0.8rem",
+              background: "rgba(255,255,255,0.03)",
+            }}
+          >
+            <div style={{ fontSize: "0.76rem", color: "var(--muted)", marginBottom: "0.4rem" }}>
+              {t("settings.coingeckoApiKey")}
+            </div>
+            <div style={{ fontSize: "0.78rem" }}>
+              {t("settings.marketProviderLastSuccess", {
+                value: formatProviderTime(providerStatus.coingecko.successAt),
+              })}
+            </div>
+            <div style={{ fontSize: "0.74rem", color: "var(--muted)", marginTop: "0.3rem" }}>
+              {providerStatus.coingecko.error
+                ? t("settings.marketProviderError", {
+                    value: providerStatus.coingecko.error,
+                  })
+                : t("settings.marketProviderOk")}
+            </div>
+            {providerStatus.coingecko.retryAfter && (
+              <div style={{ fontSize: "0.74rem", color: "var(--yellow)", marginTop: "0.2rem" }}>
+                {t("settings.marketProviderRetryAfter", {
+                  value: providerStatus.coingecko.retryAfter,
+                })}
+              </div>
+            )}
+          </div>
+
+          <div
+            style={{
+              border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: "10px",
+              padding: "0.7rem 0.8rem",
+              background: "rgba(255,255,255,0.03)",
+            }}
+          >
+            <div style={{ fontSize: "0.76rem", color: "var(--muted)", marginBottom: "0.4rem" }}>
+              {t("settings.yahooApiKey")}
+            </div>
+            <div style={{ fontSize: "0.78rem" }}>
+              {t("settings.marketProviderLastSuccess", {
+                value: formatProviderTime(providerStatus.stocks.successAt),
+              })}
+            </div>
+            <div style={{ fontSize: "0.74rem", color: "var(--muted)", marginTop: "0.3rem" }}>
+              {providerStatus.stocks.error
+                ? t("settings.marketProviderError", { value: providerStatus.stocks.error })
+                : t("settings.marketProviderOk")}
+            </div>
+            {providerStatus.stocks.retryAfter && (
+              <div style={{ fontSize: "0.74rem", color: "var(--yellow)", marginTop: "0.2rem" }}>
+                {t("settings.marketProviderRetryAfter", {
+                  value: providerStatus.stocks.retryAfter,
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div
+          style={{
+            marginTop: "1rem",
+            borderTop: "1px dashed rgba(255,255,255,0.14)",
+            paddingTop: "1rem",
+          }}
+        >
+          <div style={{ fontSize: "0.82rem", fontWeight: 600, marginBottom: "0.45rem" }}>
+            {t("settings.marketKeyTransferTitle")}
+          </div>
+          <p style={{ color: "var(--muted)", fontSize: "0.76rem", margin: "0 0 0.75rem" }}>
+            {t("settings.marketKeyTransferDescription")}
+          </p>
+          <label style={{ marginBottom: "0.35rem" }}>
+            {t("settings.marketKeyTransferPassphrase")}
+          </label>
+          <input
+            type="password"
+            value={marketSecretPhrase}
+            onChange={(e) => setMarketSecretPhrase(e.target.value)}
+            placeholder={t("settings.marketKeyTransferPassphrasePlaceholder")}
+            autoComplete="off"
+          />
+          <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.75rem", flexWrap: "wrap" }}>
+            <button className="btn-ghost" onClick={handleExportEncryptedMarketKeys}>
+              {t("settings.marketKeyTransferExport")}
+            </button>
+            <button
+              className="btn-ghost"
+              onClick={() => marketKeyImportInputRef.current?.click()}
+              disabled={importingMarketKeyBundle}
+            >
+              {importingMarketKeyBundle
+                ? t("settings.marketKeyTransferImporting")
+                : t("settings.marketKeyTransferImport")}
+            </button>
+          </div>
+          <input
+            ref={marketKeyImportInputRef}
+            type="file"
+            accept="application/json,.json"
+            onChange={handleImportEncryptedMarketKeys}
+            style={{ display: "none" }}
+          />
+          <div
+            style={{
+              marginTop: "0.6rem",
+              fontSize: "0.76rem",
+              color:
+                marketKeyTransferTone === "ok"
+                  ? "var(--green)"
+                  : marketKeyTransferTone === "warning"
+                    ? "var(--yellow)"
+                    : marketKeyTransferTone === "error"
+                      ? "var(--red)"
+                      : "var(--muted)",
+            }}
+          >
+            {marketKeyTransferStatus ?? t("settings.marketKeyTransferHint")}
+          </div>
+        </div>
       </div>
 
       {/* Seed Phrase */}

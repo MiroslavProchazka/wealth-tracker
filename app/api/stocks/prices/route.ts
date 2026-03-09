@@ -9,6 +9,7 @@ let rateCache: Record<string, number> = {};
 let rateCachedAt = 0;
 const RATE_TTL = 15 * 60 * 1000;
 const CACHE_TTL_MS = 5 * 60 * 1000;
+const RAPIDAPI_HOST = "yh-finance.p.rapidapi.com";
 
 interface StockPriceResponse {
   prices: Record<
@@ -75,6 +76,90 @@ function toCZK(amount: number, fromCurrency: string, rates: Record<string, numbe
   return amount * (rates[fromCurrency] ?? 1);
 }
 
+function mapQuoteToPrice(
+  q: Record<string, unknown>,
+  fallbackTicker: string,
+  rates: Record<string, number>,
+) {
+  const regularMarketPrice = Number(q.regularMarketPrice ?? 0);
+  if (!Number.isFinite(regularMarketPrice) || regularMarketPrice <= 0) return null;
+
+  const currency = String(q.currency ?? "USD").toUpperCase();
+  const czk = toCZK(regularMarketPrice, currency, rates);
+  const usd = currency === "USD" ? regularMarketPrice : czk / (rates.USD ?? 23.5);
+  const eur = currency === "EUR" ? regularMarketPrice : czk / (rates.EUR ?? 25.4);
+
+  return {
+    czk: Math.round(czk * 100) / 100,
+    usd: Math.round(usd * 100) / 100,
+    eur: Math.round(eur * 100) / 100,
+    originalPrice: regularMarketPrice,
+    originalCurrency: currency,
+    change24h: Number(q.regularMarketChangePercent ?? 0),
+    changeAbs: Number(q.regularMarketChange ?? 0),
+    name: String(q.shortName ?? q.longName ?? fallbackTicker),
+    open: q.regularMarketOpen === undefined ? null : Number(q.regularMarketOpen),
+    high: q.regularMarketDayHigh === undefined ? null : Number(q.regularMarketDayHigh),
+    low: q.regularMarketDayLow === undefined ? null : Number(q.regularMarketDayLow),
+    volume: q.regularMarketVolume === undefined ? null : Number(q.regularMarketVolume),
+    marketCap:
+      q.marketCap === undefined || q.marketCap === null
+        ? null
+        : toCZK(Number(q.marketCap), currency, rates),
+    pe: q.trailingPE === undefined || q.trailingPE === null ? null : Number(q.trailingPE),
+    dividendYield:
+      q.dividendYield === undefined || q.dividendYield === null
+        ? null
+        : Number(q.dividendYield),
+    week52High:
+      q.fiftyTwoWeekHigh === undefined || q.fiftyTwoWeekHigh === null
+        ? null
+        : Number(q.fiftyTwoWeekHigh),
+    week52Low:
+      q.fiftyTwoWeekLow === undefined || q.fiftyTwoWeekLow === null
+        ? null
+        : Number(q.fiftyTwoWeekLow),
+    quoteType: String(q.quoteType ?? "EQUITY"),
+    exchange: String(q.exchange ?? ""),
+  };
+}
+
+async function getRapidApiQuotes(
+  tickers: string[],
+  apiKey: string,
+): Promise<Record<string, Record<string, unknown>>> {
+  const url = new URL(`https://${RAPIDAPI_HOST}/market/v2/get-quotes`);
+  url.searchParams.set("region", "US");
+  url.searchParams.set("symbols", tickers.join(","));
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      "x-rapidapi-key": apiKey,
+      "x-rapidapi-host": RAPIDAPI_HOST,
+      Accept: "application/json",
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`RapidAPI quote fetch failed (${response.status})`);
+  }
+
+  const payload = (await response.json()) as {
+    quoteResponse?: { result?: Array<Record<string, unknown>> };
+  };
+
+  const quotes = payload.quoteResponse?.result ?? [];
+  const quoteMap: Record<string, Record<string, unknown>> = {};
+  for (const quote of quotes) {
+    const symbol = String(quote.symbol ?? "").toUpperCase();
+    if (!symbol) continue;
+    quoteMap[symbol] = quote;
+  }
+
+  return quoteMap;
+}
+
 // GET /api/stocks/prices?tickers=AAPL,MSFT,CEZ.PR
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -88,54 +173,43 @@ export async function GET(req: Request) {
   const cacheKey = [...tickers].sort().join(",");
   const cached = priceCache.get(cacheKey);
   const now = Date.now();
+  const yahooApiKey = req.headers.get("x-wt-yahoo-finance-api-key")?.trim();
+  const emptyQuoteMap: Record<string, Record<string, unknown>> = {};
 
   if (cached && now - cached.fetchedAt < CACHE_TTL_MS) {
     return NextResponse.json({ ...cached.data, cached: true });
   }
 
   try {
-    const [rates, quoteResults] = await Promise.all([
+    const [rates, quoteResults, rapidApiQuotes] = await Promise.all([
       getExchangeRates(),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       Promise.allSettled(tickers.map((ticker) => (yf as any).quote(ticker))),
+      yahooApiKey
+        ? getRapidApiQuotes(tickers, yahooApiKey).catch(() => emptyQuoteMap)
+        : Promise.resolve(emptyQuoteMap),
     ]);
 
     const prices: StockPriceResponse["prices"] = {};
 
     for (let i = 0; i < tickers.length; i++) {
+      const ticker = tickers[i];
+      const rapidApiQuote = rapidApiQuotes[ticker];
+      if (rapidApiQuote) {
+        const mappedFromRapidApi = mapQuoteToPrice(rapidApiQuote, ticker, rates);
+        if (mappedFromRapidApi) {
+          prices[ticker] = mappedFromRapidApi;
+          continue;
+        }
+      }
+
       const result = quoteResults[i];
       if (result.status !== "fulfilled" || !result.value) continue;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const q = result.value as any;
-      if (!q.regularMarketPrice) continue;
-
-      const origPrice = q.regularMarketPrice as number;
-      const currency = ((q.currency ?? "USD") as string).toUpperCase();
-      const czk = toCZK(origPrice, currency, rates);
-      const usd = currency === "USD" ? origPrice : czk / (rates["USD"] ?? 23.5);
-      const eur = currency === "EUR" ? origPrice : czk / (rates["EUR"] ?? 25.4);
-
-      prices[tickers[i]] = {
-        czk: Math.round(czk * 100) / 100,
-        usd: Math.round(usd * 100) / 100,
-        eur: Math.round(eur * 100) / 100,
-        originalPrice: origPrice,
-        originalCurrency: currency,
-        change24h: (q.regularMarketChangePercent ?? 0) as number,
-        changeAbs: (q.regularMarketChange ?? 0) as number,
-        name: (q.shortName ?? q.longName ?? tickers[i]) as string,
-        open: (q.regularMarketOpen ?? null) as number | null,
-        high: (q.regularMarketDayHigh ?? null) as number | null,
-        low: (q.regularMarketDayLow ?? null) as number | null,
-        volume: (q.regularMarketVolume ?? null) as number | null,
-        marketCap: q.marketCap ? toCZK(q.marketCap as number, currency, rates) : null,
-        pe: (q.trailingPE ?? null) as number | null,
-        dividendYield: (q.dividendYield ?? null) as number | null,
-        week52High: (q.fiftyTwoWeekHigh ?? null) as number | null,
-        week52Low: (q.fiftyTwoWeekLow ?? null) as number | null,
-        quoteType: (q.quoteType ?? "EQUITY") as string,
-        exchange: (q.exchange ?? "") as string,
-      };
+      const mappedFromYahooFinance2 = mapQuoteToPrice(result.value as any, ticker, rates);
+      if (mappedFromYahooFinance2) {
+        prices[ticker] = mappedFromYahooFinance2;
+      }
     }
 
     if (Object.keys(prices).length === 0) {

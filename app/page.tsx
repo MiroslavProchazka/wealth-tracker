@@ -16,6 +16,7 @@ import StatCard from "@/components/StatCard";
 import Modal from "@/components/Modal";
 import FormField from "@/components/FormField";
 import { useI18n } from "@/components/i18n/I18nProvider";
+import { readMarketApiKeys, withMarketApiHeaders } from "@/lib/marketApiKeys";
 import Link from "next/link";
 import {
   ASSET_CLASSES,
@@ -208,6 +209,11 @@ export default function Dashboard() {
     error: null as string | null,
     fetchedAt: null as string | null,
   });
+  const [hasCustomMarketKeys] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const keys = readMarketApiKeys();
+    return Boolean(keys.coingecko || keys.yahooFinance);
+  });
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -222,7 +228,10 @@ export default function Dashboard() {
       .map((c) => (c.symbol as string).toUpperCase())
       .filter(Boolean);
     if (symbols.length === 0) return;
-    fetch(`/api/crypto/prices?symbols=${encodeURIComponent(symbols.join(","))}`)
+    fetch(
+      `/api/crypto/prices?symbols=${encodeURIComponent(symbols.join(","))}`,
+      withMarketApiHeaders(),
+    )
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw new Error(d.error ?? `HTTP ${r.status}`);
@@ -248,7 +257,10 @@ export default function Dashboard() {
       .map((s) => (s.ticker as string).toUpperCase())
       .filter(Boolean);
     if (tickers.length === 0) return;
-    fetch(`/api/stocks/prices?tickers=${encodeURIComponent(tickers.join(","))}`)
+    fetch(
+      `/api/stocks/prices?tickers=${encodeURIComponent(tickers.join(","))}`,
+      withMarketApiHeaders(),
+    )
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw new Error(d.error ?? `HTTP ${r.status}`);
@@ -422,6 +434,11 @@ export default function Dashboard() {
     (stocks.length === 0 ||
       stockStatus.fetchedAt !== null ||
       stockStatus.error !== null);
+  const marketDataNeedsSetup =
+    (cryptos.length > 0 &&
+      (cryptoStatus.error !== null || cryptoStatus.fetchedAt === null)) ||
+    (stocks.length > 0 &&
+      (stockStatus.error !== null || stockStatus.fetchedAt === null));
 
   useEffect(() => {
     if (!pricingReady) return;
@@ -563,6 +580,36 @@ export default function Dashboard() {
           {t("sidebar.dashboard")}
         </h1>
       </div>
+      {marketDataNeedsSetup && (
+        <div
+          className="card"
+          style={{
+            marginBottom: "1.25rem",
+            borderColor: "rgba(245,158,11,0.28)",
+            background:
+              "linear-gradient(130deg, rgba(245,158,11,0.1) 0%, rgba(99,102,241,0.06) 100%)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "1rem",
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            <div style={{ fontSize: "0.93rem", fontWeight: 700, marginBottom: "0.2rem" }}>
+              {t("dashboard.marketDataSetupTitle")}
+            </div>
+            <div style={{ fontSize: "0.82rem", color: "var(--muted)" }}>
+              {hasCustomMarketKeys
+                ? t("dashboard.marketDataSetupBodyWithKeys")
+                : t("dashboard.marketDataSetupBodyNoKeys")}
+            </div>
+          </div>
+          <Link href="/settings#market-data" className="btn-primary">
+            {t("dashboard.openMarketSettings")}
+          </Link>
+        </div>
+      )}
       {/* ── Net Worth hero card ─────────────────────────────────── */}
       <div
         className="card"

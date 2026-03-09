@@ -15,6 +15,7 @@ import MarketDataStatus from "@/components/MarketDataStatus";
 import Modal from "@/components/Modal";
 import FormField from "@/components/FormField";
 import { useI18n } from "@/components/i18n/I18nProvider";
+import { withMarketApiHeaders } from "@/lib/marketApiKeys";
 
 export default function HistoryPage() {
   const evolu = useEvolu();
@@ -79,7 +80,10 @@ export default function HistoryPage() {
       setCryptoPricesLoaded(true);
       return;
     }
-    fetch(`/api/crypto/prices?symbols=${encodeURIComponent(symbols.join(","))}`)
+    fetch(
+      `/api/crypto/prices?symbols=${encodeURIComponent(symbols.join(","))}`,
+      withMarketApiHeaders(),
+    )
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw new Error(d.error ?? `HTTP ${r.status}`);
@@ -107,7 +111,10 @@ export default function HistoryPage() {
       setStockPricesLoaded(true);
       return;
     }
-    fetch(`/api/stocks/prices?tickers=${encodeURIComponent(tickers.join(","))}`)
+    fetch(
+      `/api/stocks/prices?tickers=${encodeURIComponent(tickers.join(","))}`,
+      withMarketApiHeaders(),
+    )
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw new Error(d.error ?? `HTTP ${r.status}`);
