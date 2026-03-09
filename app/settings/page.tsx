@@ -14,6 +14,7 @@ import {
   PORTFOLIO_NOTES_FEATURE_ENABLED_KEY,
   setRelayUrl,
   SNAPSHOT_AUTOMATION_SETTINGS_KEY,
+  TAG_CLOUD_FEATURE_ENABLED_KEY,
   TARGET_ALLOCATION_FEATURE_ENABLED_KEY,
   useEvolu,
 } from "@/lib/evolu";
@@ -72,6 +73,19 @@ function SettingsContent() {
       try {
         const stored = window.localStorage.getItem(
           PORTFOLIO_NOTES_FEATURE_ENABLED_KEY,
+        );
+        return stored ? JSON.parse(stored) === true : true;
+      } catch {
+        return true;
+      }
+    },
+  );
+  const [tagCloudEnabled, setTagCloudEnabled] = useState(
+    () => {
+      if (typeof window === "undefined") return true;
+      try {
+        const stored = window.localStorage.getItem(
+          TAG_CLOUD_FEATURE_ENABLED_KEY,
         );
         return stored ? JSON.parse(stored) === true : true;
       } catch {
@@ -516,6 +530,14 @@ function SettingsContent() {
     );
   }
 
+  function handleTagCloudFeatureToggle(checked: boolean) {
+    setTagCloudEnabled(checked);
+    localStorage.setItem(
+      TAG_CLOUD_FEATURE_ENABLED_KEY,
+      JSON.stringify(checked),
+    );
+  }
+
   return (
     <div style={{ maxWidth: "640px" }}>
       <div style={{ marginBottom: "2rem" }}>
@@ -833,6 +855,37 @@ function SettingsContent() {
           {portfolioNotesEnabled
             ? t("settings.portfolioNotesEnabledHint")
             : t("settings.portfolioNotesDisabledHint")}
+        </p>
+      </div>
+
+      <div className="card" style={{ marginBottom: "1.5rem" }}>
+        <h2 style={{ margin: "0 0 0.5rem", fontSize: "1rem", fontWeight: 700 }}>
+          🏷️ {t("settings.tagCloud")}
+        </h2>
+        <p style={{ color: "var(--muted)", fontSize: "0.8rem", margin: "0 0 1rem" }}>
+          {t("settings.tagCloudDescription")}
+        </p>
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.65rem",
+            fontSize: "0.85rem",
+            color: "var(--foreground)",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={tagCloudEnabled}
+            onChange={(e) => handleTagCloudFeatureToggle(e.target.checked)}
+            style={{ width: "auto" }}
+          />
+          {t("settings.tagCloudToggle")}
+        </label>
+        <p style={{ color: "var(--muted)", fontSize: "0.8rem", margin: "0.85rem 0 0" }}>
+          {tagCloudEnabled
+            ? t("settings.tagCloudEnabledHint")
+            : t("settings.tagCloudDisabledHint")}
         </p>
       </div>
 

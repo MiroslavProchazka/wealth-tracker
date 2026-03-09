@@ -98,6 +98,32 @@ test.describe("Dashboard (/)", () => {
     ).toBeVisible();
   });
 
+  test("tag cloud sekce je skrytá, dokud se funkce nepovolí", async ({ page }) => {
+    await page.goto("/settings");
+    await waitForApp(page);
+    await page
+      .getByLabel(/Show Tag Cloud on dashboard|Zobrazovat Tag cloud na dashboardu/i)
+      .uncheck();
+
+    await page.goto("/");
+    await waitForApp(page);
+    await expect(
+      page.getByRole("heading", { name: /tag cloud/i }),
+    ).toHaveCount(0);
+
+    await page.goto("/settings");
+    await waitForApp(page);
+    await page
+      .getByLabel(/Show Tag Cloud on dashboard|Zobrazovat Tag cloud na dashboardu/i)
+      .check();
+
+    await page.goto("/");
+    await waitForApp(page);
+    await expect(
+      page.getByRole("heading", { name: /tag cloud/i }),
+    ).toBeVisible();
+  });
+
   test("navigace na Crypto skrze quick link", async ({ page }) => {
     // Klik na Crypto v sidebaru
     await page.locator("aside").getByRole("link", { name: /Crypto/i }).click();
