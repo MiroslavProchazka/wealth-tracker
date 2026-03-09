@@ -11,6 +11,7 @@ import {
 } from "@/lib/backup";
 import {
   getRelayUrl,
+  PORTFOLIO_NOTES_FEATURE_ENABLED_KEY,
   setRelayUrl,
   SNAPSHOT_AUTOMATION_SETTINGS_KEY,
   TARGET_ALLOCATION_FEATURE_ENABLED_KEY,
@@ -62,6 +63,19 @@ function SettingsContent() {
         return stored ? JSON.parse(stored) === true : false;
       } catch {
         return false;
+      }
+    },
+  );
+  const [portfolioNotesEnabled, setPortfolioNotesEnabled] = useState(
+    () => {
+      if (typeof window === "undefined") return true;
+      try {
+        const stored = window.localStorage.getItem(
+          PORTFOLIO_NOTES_FEATURE_ENABLED_KEY,
+        );
+        return stored ? JSON.parse(stored) === true : true;
+      } catch {
+        return true;
       }
     },
   );
@@ -494,6 +508,14 @@ function SettingsContent() {
     );
   }
 
+  function handlePortfolioNotesFeatureToggle(checked: boolean) {
+    setPortfolioNotesEnabled(checked);
+    localStorage.setItem(
+      PORTFOLIO_NOTES_FEATURE_ENABLED_KEY,
+      JSON.stringify(checked),
+    );
+  }
+
   return (
     <div style={{ maxWidth: "640px" }}>
       <div style={{ marginBottom: "2rem" }}>
@@ -781,6 +803,37 @@ function SettingsContent() {
           />
           {t("settings.snapshotAutomationToggle")}
         </label>
+      </div>
+
+      <div className="card" style={{ marginBottom: "1.5rem" }}>
+        <h2 style={{ margin: "0 0 0.5rem", fontSize: "1rem", fontWeight: 700 }}>
+          📝 {t("settings.portfolioNotes")}
+        </h2>
+        <p style={{ color: "var(--muted)", fontSize: "0.8rem", margin: "0 0 1rem" }}>
+          {t("settings.portfolioNotesDescription")}
+        </p>
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.65rem",
+            fontSize: "0.85rem",
+            color: "var(--foreground)",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={portfolioNotesEnabled}
+            onChange={(e) => handlePortfolioNotesFeatureToggle(e.target.checked)}
+            style={{ width: "auto" }}
+          />
+          {t("settings.portfolioNotesToggle")}
+        </label>
+        <p style={{ color: "var(--muted)", fontSize: "0.8rem", margin: "0.85rem 0 0" }}>
+          {portfolioNotesEnabled
+            ? t("settings.portfolioNotesEnabledHint")
+            : t("settings.portfolioNotesDisabledHint")}
+        </p>
       </div>
 
       <div className="card" style={{ marginBottom: "1.5rem" }}>
