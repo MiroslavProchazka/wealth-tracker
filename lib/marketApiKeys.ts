@@ -1,3 +1,5 @@
+import { DEMO_MODE_HEADER, isDemoModeEnabled } from "@/lib/demoMode";
+
 export const MARKET_API_STORAGE_KEYS = {
   coingecko: "wealthTracker_marketApiKey_coingecko",
   yahooFinance: "wealthTracker_marketApiKey_yahooFinance",
@@ -52,7 +54,8 @@ export function saveMarketApiKeys(keys: Partial<MarketApiKeys>) {
 
 export function withMarketApiHeaders(init: RequestInit = {}): RequestInit {
   const keys = readMarketApiKeys();
-  if (!keys.coingecko && !keys.yahooFinance) return init;
+  const demoMode = isDemoModeEnabled();
+  if (!keys.coingecko && !keys.yahooFinance && !demoMode) return init;
 
   const headers = new Headers(init.headers);
   if (keys.coingecko) {
@@ -60,6 +63,9 @@ export function withMarketApiHeaders(init: RequestInit = {}): RequestInit {
   }
   if (keys.yahooFinance) {
     headers.set("x-wt-yahoo-finance-api-key", keys.yahooFinance);
+  }
+  if (demoMode) {
+    headers.set(DEMO_MODE_HEADER, "1");
   }
 
   return {

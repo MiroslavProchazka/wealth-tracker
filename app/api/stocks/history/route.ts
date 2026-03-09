@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import YahooFinanceClass from "yahoo-finance2";
+import { getDemoStockHistory } from "@/lib/demoMarket";
+import { isDemoModeRequest } from "@/lib/demoMode";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const yf = new (YahooFinanceClass as any)({ suppressNotices: ["yahooSurvey"] });
@@ -12,6 +14,16 @@ export async function GET(req: Request) {
   const currency = (searchParams.get("currency") ?? "czk").toLowerCase();
 
   if (!ticker) return NextResponse.json({ error: "ticker required" }, { status: 400 });
+
+  if (isDemoModeRequest(req)) {
+    return NextResponse.json({
+      ticker,
+      currency: currency.toUpperCase(),
+      days,
+      points: getDemoStockHistory(ticker, days, currency),
+      demo: true,
+    });
+  }
 
   const endDate = new Date();
   const startDate = new Date();

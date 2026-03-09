@@ -18,6 +18,13 @@ import FormField from "@/components/FormField";
 import { useI18n } from "@/components/i18n/I18nProvider";
 import { readMarketApiKeys, withMarketApiHeaders } from "@/lib/marketApiKeys";
 import Link from "next/link";
+import { seedDemoAccount } from "@/lib/demoData";
+import {
+  getOnboardingChoice,
+  isDemoModeEnabled,
+  setDemoModeEnabled,
+  setOnboardingChoice,
+} from "@/lib/demoMode";
 import {
   ASSET_CLASSES,
   DEFAULT_ALLOCATION_TARGETS,
@@ -147,6 +154,13 @@ export default function Dashboard() {
     tags: "",
   });
   const [autoSnapshotMsg, setAutoSnapshotMsg] = useState<string | null>(null);
+  const [onboardingChoice, setOnboardingChoiceState] = useState<
+    "demo" | "manual" | null
+  >(null);
+  const [startingDemo, setStartingDemo] = useState(false);
+  const [onboardingError, setOnboardingError] = useState<string | null>(null);
+  const [onboardingMessage, setOnboardingMessage] = useState<string | null>(null);
+  const [demoModeEnabled, setDemoModeEnabledState] = useState(false);
   const [targetAllocationEnabled] = useState(
     () => {
       if (typeof window === "undefined") return false;
@@ -218,6 +232,11 @@ export default function Dashboard() {
     if (typeof window === "undefined") return false;
     return window.matchMedia("(max-width: 768px)").matches;
   });
+
+  useEffect(() => {
+    setOnboardingChoiceState(getOnboardingChoice());
+    setDemoModeEnabledState(isDemoModeEnabled());
+  }, []);
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -461,6 +480,13 @@ export default function Dashboard() {
       (stockStatus.error !== null || stockStatus.fetchedAt === null));
   const marketDataNeedsSetup =
     hasMarketFetchIssues || (!hasMarketTrackedAssets && !hasCustomMarketKeys);
+  const hasAnyPortfolioData =
+    cryptos.length > 0 ||
+    stocks.length > 0 ||
+    properties.length > 0 ||
+    savings.length > 0 ||
+    snapshots.length > 0;
+  const showOnboardingChoice = !hasAnyPortfolioData && onboardingChoice === null;
 
   useEffect(() => {
     if (!pricingReady) return;
@@ -573,6 +599,36 @@ export default function Dashboard() {
     } as never);
   }
 
+  function handleStartManualMode() {
+    setOnboardingChoice("manual");
+    setDemoModeEnabled(false);
+    setOnboardingChoiceState("manual");
+    setDemoModeEnabledState(false);
+    setOnboardingMessage(t("dashboard.manualAccountReady"));
+  }
+
+  function handleStartDemoMode() {
+    setStartingDemo(true);
+    setOnboardingError(null);
+    try {
+      if (hasAnyPortfolioData) {
+        setOnboardingChoiceState(getOnboardingChoice());
+        setOnboardingError(t("dashboard.demoAccountBlocked"));
+        return;
+      }
+      seedDemoAccount(evolu);
+      setDemoModeEnabled(true);
+      setOnboardingChoice("demo");
+      setOnboardingChoiceState("demo");
+      setDemoModeEnabledState(true);
+      setOnboardingMessage(t("dashboard.demoAccountReady"));
+    } catch {
+      setOnboardingError(t("dashboard.demoAccountError"));
+    } finally {
+      setStartingDemo(false);
+    }
+  }
+
   return (
     <div>
       {autoSnapshotMsg && (
@@ -602,6 +658,130 @@ export default function Dashboard() {
           {t("sidebar.dashboard")}
         </h1>
       </div>
+      {showOnboardingChoice && (
+        <div
+          className="card"
+          style={{
+            marginBottom: "1.25rem",
+            borderColor: "rgba(59,130,246,0.32)",
+            background:
+              "linear-gradient(135deg, rgba(59,130,246,0.13) 0%, rgba(16,185,129,0.1) 100%)",
+          }}
+        >
+          <div style={{ marginBottom: "1rem" }}>
+            <div style={{ fontSize: "1rem", fontWeight: 700 }}>
+              {t("dashboard.onboardingTitle")}
+            </div>
+            <div style={{ fontSize: "0.83rem", color: "var(--muted)", marginTop: "0.35rem" }}>
+              {t("dashboard.onboardingSubtitle")}
+            </div>
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: "0.8rem",
+            }}
+          >
+            <div
+              style={{
+                border: "1px solid rgba(34,197,94,0.28)",
+                borderRadius: "10px",
+                padding: "0.85rem",
+                background: "rgba(16,185,129,0.08)",
+              }}
+            >
+              <div style={{ fontSize: "0.85rem", fontWeight: 700, marginBottom: "0.35rem" }}>
+                {t("dashboard.onboardingDemoTitle")}
+              </div>
+              <div style={{ fontSize: "0.78rem", color: "var(--muted)", marginBottom: "0.8rem" }}>
+                {t("dashboard.onboardingDemoBody")}
+              </div>
+              <button
+                className="btn-primary"
+                onClick={handleStartDemoMode}
+                disabled={startingDemo}
+              >
+                {startingDemo
+                  ? t("dashboard.onboardingDemoLoading")
+                  : t("dashboard.onboardingDemoAction")}
+              </button>
+            </div>
+            <div
+              style={{
+                border: "1px solid rgba(255,255,255,0.16)",
+                borderRadius: "10px",
+                padding: "0.85rem",
+                background: "rgba(255,255,255,0.03)",
+              }}
+            >
+              <div style={{ fontSize: "0.85rem", fontWeight: 700, marginBottom: "0.35rem" }}>
+                {t("dashboard.onboardingManualTitle")}
+              </div>
+              <div style={{ fontSize: "0.78rem", color: "var(--muted)", marginBottom: "0.8rem" }}>
+                {t("dashboard.onboardingManualBody")}
+              </div>
+              <button className="btn-ghost" onClick={handleStartManualMode}>
+                {t("dashboard.onboardingManualAction")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {!showOnboardingChoice && onboardingMessage && (
+        <div
+          className="card"
+          style={{
+            marginBottom: "1rem",
+            borderColor: "rgba(34,197,94,0.22)",
+            background: "rgba(34,197,94,0.08)",
+            color: "var(--text)",
+            fontSize: "0.82rem",
+          }}
+        >
+          {onboardingMessage}
+        </div>
+      )}
+      {onboardingError && (
+        <div
+          className="card"
+          style={{
+            marginBottom: "1rem",
+            borderColor: "rgba(239,68,68,0.26)",
+            background: "rgba(239,68,68,0.09)",
+            color: "var(--text)",
+            fontSize: "0.82rem",
+          }}
+        >
+          {onboardingError}
+        </div>
+      )}
+      {demoModeEnabled && !showOnboardingChoice && (
+        <div
+          className="card"
+          style={{
+            marginBottom: "1.25rem",
+            borderColor: "rgba(6,182,212,0.26)",
+            background:
+              "linear-gradient(130deg, rgba(6,182,212,0.12) 0%, rgba(59,130,246,0.08) 100%)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "0.8rem",
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ fontSize: "0.82rem" }}>
+            <strong>{t("dashboard.demoModeBadgeTitle")}</strong>{" "}
+            <span style={{ color: "var(--muted)" }}>
+              {t("dashboard.demoModeBadgeBody")}
+            </span>
+          </div>
+          <Link href="/account#market-data" className="btn-ghost">
+            {t("dashboard.openMarketSettings")}
+          </Link>
+        </div>
+      )}
       {marketDataNeedsSetup && (
         <div
           className="card"

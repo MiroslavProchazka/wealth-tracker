@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import YahooFinanceClass from "yahoo-finance2";
+import { DEMO_FIAT_RATES_TO_CZK, getDemoStockPrices } from "@/lib/demoMarket";
+import { isDemoModeRequest } from "@/lib/demoMode";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const yf = new (YahooFinanceClass as any)({ suppressNotices: ["yahooSurvey"] });
@@ -168,6 +170,15 @@ export async function GET(req: Request) {
 
   if (tickers.length === 0) {
     return NextResponse.json({ prices: {}, fetchedAt: new Date().toISOString() });
+  }
+
+  if (isDemoModeRequest(req)) {
+    return NextResponse.json({
+      prices: getDemoStockPrices(tickers),
+      rates: DEMO_FIAT_RATES_TO_CZK,
+      fetchedAt: new Date().toISOString(),
+      demo: true,
+    });
   }
 
   const cacheKey = [...tickers].sort().join(",");

@@ -28,6 +28,7 @@ import {
   saveMarketApiKeys,
   withMarketApiHeaders,
 } from "@/lib/marketApiKeys";
+import { isDemoModeEnabled, setDemoModeEnabled } from "@/lib/demoMode";
 import { useI18n } from "@/components/i18n/I18nProvider";
 
 interface ProviderConnectionState {
@@ -224,6 +225,7 @@ function SettingsContent() {
   const [marketSettingsStatusTone, setMarketSettingsStatusTone] = useState<
     "neutral" | "ok" | "warning" | "error"
   >("neutral");
+  const [demoModeActive, setDemoModeActive] = useState(false);
   const [testingMarketKeys, setTestingMarketKeys] = useState(false);
   const [marketSecretPhrase, setMarketSecretPhrase] = useState("");
   const [marketKeyTransferStatus, setMarketKeyTransferStatus] = useState<
@@ -372,6 +374,7 @@ function SettingsContent() {
     const keys = readMarketApiKeys();
     setCoingeckoApiKey(keys.coingecko);
     setYahooFinanceApiKey(keys.yahooFinance);
+    setDemoModeActive(isDemoModeEnabled());
   }, []);
 
   useEffect(() => {
@@ -732,6 +735,8 @@ function SettingsContent() {
       coingecko: coingeckoApiKey,
       yahooFinance: yahooFinanceApiKey,
     });
+    setDemoModeEnabled(false);
+    setDemoModeActive(false);
     setCoingeckoApiKey(coingeckoApiKey.trim());
     setYahooFinanceApiKey(yahooFinanceApiKey.trim());
     setMarketSettingsStatus(t("settings.marketKeysSaved"));
@@ -747,6 +752,13 @@ function SettingsContent() {
     });
     setMarketSettingsStatus(t("settings.marketKeysCleared"));
     setMarketSettingsStatusTone("warning");
+  }
+
+  function handleDisableDemoMode() {
+    setDemoModeEnabled(false);
+    setDemoModeActive(false);
+    setMarketSettingsStatus(t("settings.demoModeDisabled"));
+    setMarketSettingsStatusTone("ok");
   }
 
   async function handleExportEncryptedMarketKeys() {
@@ -977,6 +989,27 @@ function SettingsContent() {
         <p style={{ color: "var(--muted)", fontSize: "0.8rem", margin: "0 0 1rem" }}>
           {t("settings.marketKeysDescription")}
         </p>
+        {demoModeActive && (
+          <div
+            style={{
+              marginBottom: "0.95rem",
+              border: "1px solid rgba(245,158,11,0.26)",
+              borderRadius: "10px",
+              padding: "0.75rem 0.85rem",
+              background: "rgba(245,158,11,0.08)",
+            }}
+          >
+            <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.25rem" }}>
+              {t("settings.demoModeActiveTitle")}
+            </div>
+            <div style={{ fontSize: "0.76rem", color: "var(--muted)", marginBottom: "0.65rem" }}>
+              {t("settings.demoModeActiveBody")}
+            </div>
+            <button className="btn-ghost" onClick={handleDisableDemoMode}>
+              {t("settings.demoModeDisableAction")}
+            </button>
+          </div>
+        )}
 
         <div style={{ display: "grid", gap: "0.85rem" }}>
           <div>
