@@ -15,18 +15,31 @@ export const DEFAULT_CURRENCY: Currency = "CZK";
 export function formatCurrency(
   amount: number,
   currency: string = DEFAULT_CURRENCY,
-  compact = false
+  compact = false,
+  locale = "cs-CZ",
 ): string {
   const symbol = CURRENCY_SYMBOLS[currency as Currency] ?? currency;
-  if (compact && Math.abs(amount) >= 1_000_000) {
-    return `${(amount / 1_000_000).toFixed(2)}M ${symbol}`;
+  const abs = Math.abs(amount);
+
+  if (compact && abs >= 1_000_000) {
+    const short = new Intl.NumberFormat(locale, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 1,
+    }).format(amount / 1_000_000);
+    const suffix = locale.startsWith("cs") ? " mil" : "M";
+    return `${short}${suffix} ${symbol}`;
   }
-  if (compact && Math.abs(amount) >= 1_000) {
-    return `${(amount / 1_000).toFixed(1)}k ${symbol}`;
+  if (compact && abs >= 1_000) {
+    const short = new Intl.NumberFormat(locale, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: abs >= 100_000 ? 0 : 1,
+    }).format(amount / 1_000);
+    return `${short}k ${symbol}`;
   }
-  return new Intl.NumberFormat("cs-CZ", {
+
+  return new Intl.NumberFormat(locale, {
     minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
+    maximumFractionDigits: 0,
   }).format(amount) + " " + symbol;
 }
 

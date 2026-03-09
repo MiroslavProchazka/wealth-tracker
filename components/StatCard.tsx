@@ -48,7 +48,7 @@ export default function StatCard({
           }}>
             {label}
           </div>
-          <div style={{
+          <div className="stat-card-value" style={{
             fontSize: "1.5rem",
             fontWeight: 700,
             color: "var(--text)",
@@ -85,7 +85,7 @@ export default function StatCard({
         </div>
 
         {icon && (
-          <div style={{
+          <div className="stat-card-icon" style={{
             width: "36px",
             height: "36px",
             borderRadius: "10px",
