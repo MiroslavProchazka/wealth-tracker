@@ -15,7 +15,8 @@ export async function GET(req: Request) {
   const url = `${BASE}/coins/${id}/market_chart?vs_currency=${currency}&days=${days}&interval=daily`;
 
   const headers: Record<string, string> = { Accept: "application/json" };
-  const key = process.env.COINGECKO_API_KEY;
+  const customKey = req.headers.get("x-wt-coingecko-api-key")?.trim();
+  const key = customKey || process.env.COINGECKO_API_KEY;
   if (key) headers["x-cg-demo-api-key"] = key;
 
   try {

@@ -72,7 +72,7 @@ export default function Sidebar() {
     { href: "/property", label: t("sidebar.property"), icon: Icons.property },
     { href: "/savings", label: t("sidebar.savings"), icon: Icons.savings },
     { href: "/history", label: t("sidebar.history"), icon: Icons.history },
-    { href: "/settings", label: t("sidebar.account"), icon: Icons.settings },
+    { href: "/settings", label: t("sidebar.settings"), icon: Icons.settings },
   ];
   const toneStyles = {
     ok: {
@@ -243,11 +243,17 @@ export default function Sidebar() {
         >
           {footerItems.map((item) => {
             const tone = item.tone ?? "neutral";
-
-            return (
+            const isMarketStatusItem =
+              item.label === t("dashboard.cryptoPrices") ||
+              item.label === t("dashboard.stockPrices");
+            const statusChip = (
               <div
                 key={`${item.label}-${item.value}`}
-                title={`${item.label}: ${item.value}`}
+                title={
+                  isMarketStatusItem
+                    ? `${item.label}: ${item.value} · ${t("settings.openMarketSettings")}`
+                    : `${item.label}: ${item.value}`
+                }
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
@@ -260,6 +266,7 @@ export default function Sidebar() {
                   color: toneStyles[tone].text,
                   fontSize: "0.72rem",
                   lineHeight: 1.2,
+                  cursor: isMarketStatusItem ? "pointer" : "default",
                 }}
               >
                 <span
@@ -285,6 +292,18 @@ export default function Sidebar() {
                   {item.value}
                 </span>
               </div>
+            );
+
+            if (!isMarketStatusItem) return statusChip;
+
+            return (
+              <Link
+                key={`${item.label}-${item.value}`}
+                href="/settings#market-data"
+                style={{ textDecoration: "none" }}
+              >
+                {statusChip}
+              </Link>
             );
           })}
         </div>

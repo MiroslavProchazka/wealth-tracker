@@ -7,6 +7,7 @@ import Modal from "@/components/Modal";
 import FormField from "@/components/FormField";
 import { formatCurrency, formatPercent } from "@/lib/currencies";
 import { useI18n } from "@/components/i18n/I18nProvider";
+import { withMarketApiHeaders } from "@/lib/marketApiKeys";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid,
@@ -204,7 +205,10 @@ export default function StocksPage() {
     setPricesLoading(true);
     setPricesError(null);
     try {
-      const res = await fetch(`/api/stocks/prices?tickers=${encodeURIComponent(tickers)}`);
+      const res = await fetch(
+        `/api/stocks/prices?tickers=${encodeURIComponent(tickers)}`,
+        withMarketApiHeaders(),
+      );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const newPrices: Record<string, StockPrice> = data.prices ?? {};
@@ -254,7 +258,10 @@ export default function StocksPage() {
     setChartLoading(true);
     setChartData([]);
     const currency = displayCurrency.toLowerCase();
-    fetch(`/api/stocks/history?ticker=${chartTicker}&days=${chartDays}&currency=${currency}`)
+    fetch(
+      `/api/stocks/history?ticker=${chartTicker}&days=${chartDays}&currency=${currency}`,
+      withMarketApiHeaders(),
+    )
       .then((r) => r.json())
       .then((d) => setChartData(d.points ?? []))
       .catch(() => setChartData([]))
@@ -273,7 +280,10 @@ export default function StocksPage() {
     searchDebounceRef.current = setTimeout(async () => {
       setSearchLoading(true);
       try {
-        const res = await fetch(`/api/stocks/search?q=${encodeURIComponent(val)}`);
+        const res = await fetch(
+          `/api/stocks/search?q=${encodeURIComponent(val)}`,
+          withMarketApiHeaders(),
+        );
         const data = await res.json();
         setSearchResults(data.results ?? []);
       } catch { setSearchResults([]); }

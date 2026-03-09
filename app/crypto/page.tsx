@@ -7,6 +7,7 @@ import Modal from "@/components/Modal";
 import FormField from "@/components/FormField";
 import { formatCurrency, formatPercent } from "@/lib/currencies";
 import { useI18n } from "@/components/i18n/I18nProvider";
+import { withMarketApiHeaders } from "@/lib/marketApiKeys";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid,
@@ -176,7 +177,10 @@ export default function CryptoPage() {
     setPricesLoading(true);
     setPricesError(null);
     try {
-      const res = await fetch(`/api/crypto/prices?symbols=${encodeURIComponent(symbols)}`);
+      const res = await fetch(
+        `/api/crypto/prices?symbols=${encodeURIComponent(symbols)}`,
+        withMarketApiHeaders(),
+      );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const newPrices: Record<string, PriceData> = data.prices ?? {};
@@ -235,7 +239,10 @@ export default function CryptoPage() {
     setChartLoading(true);
     setChartData([]);
     const currency = displayCurrency.toLowerCase();
-    fetch(`/api/crypto/history?symbol=${chartSymbol}&days=${chartDays}&currency=${currency}`)
+    fetch(
+      `/api/crypto/history?symbol=${chartSymbol}&days=${chartDays}&currency=${currency}`,
+      withMarketApiHeaders(),
+    )
       .then((r) => r.json())
       .then((d) => setChartData(d.points ?? []))
       .catch(() => setChartData([]))
@@ -253,7 +260,10 @@ export default function CryptoPage() {
     symbolDebounceRef.current = setTimeout(async () => {
       setNameLookupLoading(true);
       try {
-        const res = await fetch(`/api/crypto/search?symbol=${encodeURIComponent(val)}`);
+        const res = await fetch(
+          `/api/crypto/search?symbol=${encodeURIComponent(val)}`,
+          withMarketApiHeaders(),
+        );
         const data = await res.json();
         if (data.name) setForm((f) => ({ ...f, name: data.name }));
       } catch { /* silent */ }

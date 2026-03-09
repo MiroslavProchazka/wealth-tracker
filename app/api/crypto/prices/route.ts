@@ -4,9 +4,10 @@ import { SYMBOL_TO_ID } from "@/lib/coingecko";
 const BASE = "https://api.coingecko.com/api/v3";
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minut
 
-function getHeaders(): Record<string, string> {
+function getHeaders(req: Request): Record<string, string> {
   const headers: Record<string, string> = { Accept: "application/json" };
-  const key = process.env.COINGECKO_API_KEY;
+  const customKey = req.headers.get("x-wt-coingecko-api-key")?.trim();
+  const key = customKey || process.env.COINGECKO_API_KEY;
   if (key) headers["x-cg-demo-api-key"] = key;
   return headers;
 }
@@ -81,7 +82,7 @@ export async function GET(req: Request) {
 
   let res: Response;
   try {
-    res = await fetch(url, { headers: getHeaders(), next: { revalidate: 0 } });
+    res = await fetch(url, { headers: getHeaders(req), next: { revalidate: 0 } });
   } catch {
     // Network error — return stale cache if available
     if (cached) {
