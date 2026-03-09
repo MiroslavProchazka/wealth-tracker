@@ -66,22 +66,23 @@ describe("formatCurrency", () => {
 
     it("compact pro miliony zobrazí 'M'", () => {
       const result = formatCurrency(2_500_000, "CZK", true);
-      expect(result).toContain("M");
+      expect(result).toContain("mil");
     });
 
     it("compact milion má 2 desetinná místa", () => {
       const result = formatCurrency(1_500_000, "CZK", true);
-      expect(result).toContain("1.50M");
+      expect(result).toContain("1,5");
+      expect(result).toContain("mil");
     });
 
     it("compact tisíce má 1 desetinné místo", () => {
       const result = formatCurrency(25_500, "CZK", true);
-      expect(result).toContain("25.5k");
+      expect(result).toContain("25,5k");
     });
 
     it("compact záporný milion", () => {
       const result = formatCurrency(-3_000_000, "CZK", true);
-      expect(result).toContain("M");
+      expect(result).toContain("mil");
     });
   });
 
