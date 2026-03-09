@@ -13,6 +13,7 @@ import {
   getRelayUrl,
   setRelayUrl,
   SNAPSHOT_AUTOMATION_SETTINGS_KEY,
+  TARGET_ALLOCATION_FEATURE_ENABLED_KEY,
   useEvolu,
 } from "@/lib/evolu";
 import {
@@ -50,6 +51,19 @@ function SettingsContent() {
   const [allocationStatus, setAllocationStatus] = useState<string | null>(null);
   const [automationSettings, setAutomationSettings] = useState(
     DEFAULT_SNAPSHOT_AUTOMATION_SETTINGS,
+  );
+  const [targetAllocationEnabled, setTargetAllocationEnabled] = useState(
+    () => {
+      if (typeof window === "undefined") return false;
+      try {
+        const stored = window.localStorage.getItem(
+          TARGET_ALLOCATION_FEATURE_ENABLED_KEY,
+        );
+        return stored ? JSON.parse(stored) === true : false;
+      } catch {
+        return false;
+      }
+    },
   );
   const [allocationDrafts, setAllocationDrafts] = useState<
     Record<string, string>
@@ -472,6 +486,14 @@ function SettingsContent() {
     setTimeout(() => setAllocationStatus(null), 2500);
   }
 
+  function handleTargetAllocationFeatureToggle(checked: boolean) {
+    setTargetAllocationEnabled(checked);
+    localStorage.setItem(
+      TARGET_ALLOCATION_FEATURE_ENABLED_KEY,
+      JSON.stringify(checked),
+    );
+  }
+
   return (
     <div style={{ maxWidth: "640px" }}>
       <div style={{ marginBottom: "2rem" }}>
@@ -768,55 +790,81 @@ function SettingsContent() {
         <p style={{ color: "var(--muted)", fontSize: "0.8rem", margin: "0 0 1rem" }}>
           {t("settings.targetAllocationDescription")}
         </p>
-
-        <div style={{ display: "grid", gap: "0.75rem" }}>
-          {allocationRows.map((row) => (
-            <div
-              key={row.assetClass}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 120px",
-                gap: "0.75rem",
-                alignItems: "center",
-              }}
-            >
-              <div style={{ fontSize: "0.85rem", fontWeight: 600 }}>{assetClassLabels[row.assetClass] ?? row.assetClass}</div>
-              <input
-                type="number"
-                min="0"
-                max="100"
-                step="0.1"
-                value={allocationDrafts[row.assetClass] ?? row.targetPercent.toString()}
-                onChange={(e) => handleTargetDraftChange(row.assetClass, e.target.value)}
-                onBlur={() => handleTargetSave(row.assetClass)}
-                style={{
-                  background: "var(--card)",
-                  border: "1px solid var(--card-border)",
-                  borderRadius: "8px",
-                  padding: "0.55rem 0.7rem",
-                  color: "var(--foreground)",
-                }}
-              />
-            </div>
-          ))}
-        </div>
-
-        <div
+        <label
           style={{
-            marginTop: "1rem",
-            fontSize: "0.78rem",
-            color:
-              Math.abs(totalTargetPercent - 100) < 0.001
-                ? "var(--green)"
-                : "var(--yellow)",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.65rem",
+            fontSize: "0.85rem",
+            color: "var(--foreground)",
+            marginBottom: targetAllocationEnabled ? "1rem" : 0,
           }}
         >
-          {t("settings.totalTargetWeight", { value: totalTargetPercent.toFixed(1) })}
-        </div>
-        {allocationStatus && (
-          <div style={{ marginTop: "0.6rem", fontSize: "0.78rem", color: "var(--muted)" }}>
-            {allocationStatus}
-          </div>
+          <input
+            type="checkbox"
+            checked={targetAllocationEnabled}
+            onChange={(e) => handleTargetAllocationFeatureToggle(e.target.checked)}
+            style={{ width: "auto" }}
+          />
+          {t("settings.targetAllocationToggle")}
+        </label>
+
+        {targetAllocationEnabled ? (
+          <>
+            <div style={{ display: "grid", gap: "0.75rem" }}>
+              {allocationRows.map((row) => (
+                <div
+                  key={row.assetClass}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 120px",
+                    gap: "0.75rem",
+                    alignItems: "center",
+                  }}
+                >
+                  <div style={{ fontSize: "0.85rem", fontWeight: 600 }}>{assetClassLabels[row.assetClass] ?? row.assetClass}</div>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    value={allocationDrafts[row.assetClass] ?? row.targetPercent.toString()}
+                    onChange={(e) => handleTargetDraftChange(row.assetClass, e.target.value)}
+                    onBlur={() => handleTargetSave(row.assetClass)}
+                    style={{
+                      background: "var(--card)",
+                      border: "1px solid var(--card-border)",
+                      borderRadius: "8px",
+                      padding: "0.55rem 0.7rem",
+                      color: "var(--foreground)",
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div
+              style={{
+                marginTop: "1rem",
+                fontSize: "0.78rem",
+                color:
+                  Math.abs(totalTargetPercent - 100) < 0.001
+                    ? "var(--green)"
+                    : "var(--yellow)",
+              }}
+            >
+              {t("settings.totalTargetWeight", { value: totalTargetPercent.toFixed(1) })}
+            </div>
+            {allocationStatus && (
+              <div style={{ marginTop: "0.6rem", fontSize: "0.78rem", color: "var(--muted)" }}>
+                {allocationStatus}
+              </div>
+            )}
+          </>
+        ) : (
+          <p style={{ color: "var(--muted)", fontSize: "0.8rem", margin: "0.85rem 0 0" }}>
+            {t("settings.targetAllocationDisabledHint")}
+          </p>
         )}
       </div>
     </div>

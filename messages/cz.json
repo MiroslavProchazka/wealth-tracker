@@ -346,6 +346,8 @@
     "snapshotAutomationToggle": "Povolit denní snapshot při otevření appky / změně dne",
     "targetAllocation": "Cílová alokace",
     "targetAllocationDescription": "Nastavte cílové váhy podle tříd aktiv. Dashboard je pak porovnává se současným složením portfolia.",
+    "targetAllocationToggle": "Povolit funkci Cílová vs. skutečná alokace",
+    "targetAllocationDisabledHint": "Podrobné nastavení cílové alokace je skryté, dokud tuto funkci nepovolíte.",
     "totalTargetWeight": "Celková cílová váha: {value}%",
     "allocationUpdated": "Cílové alokace byly aktualizovány.",
     "seedPlaceholder": "slovo1 slovo2 slovo3 …"

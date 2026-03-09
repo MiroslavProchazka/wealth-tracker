@@ -48,6 +48,26 @@ test.describe("Dashboard (/)", () => {
     await expect(page.getByText(/crypto|stocks|property|savings|accounts/i).first()).toBeVisible();
   });
 
+  test("target vs actual sekce je skrytá, dokud se funkce nepovolí", async ({ page }) => {
+    await expect(
+      page.getByText(/target vs actual allocation|cílová vs\. skutečná alokace/i),
+    ).toHaveCount(0);
+
+    await page.goto("/settings");
+    await waitForApp(page);
+    await page
+      .getByLabel(
+        /Enable Target vs Actual Allocation feature|Povolit funkci Cílová vs\. skutečná alokace/i,
+      )
+      .check();
+
+    await page.goto("/");
+    await waitForApp(page);
+    await expect(
+      page.getByText(/target vs actual allocation|cílová vs\. skutečná alokace/i),
+    ).toBeVisible();
+  });
+
   test("navigace na Crypto skrze quick link", async ({ page }) => {
     // Klik na Crypto v sidebaru
     await page.locator("aside").getByRole("link", { name: /Crypto/i }).click();
