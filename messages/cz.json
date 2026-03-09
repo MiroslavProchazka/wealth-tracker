@@ -112,6 +112,7 @@
     "tagCloud": "Tag cloud",
     "noTags": "Zatím nemáte žádné tagy. Přidejte tagy aktivům nebo poznámkám pro lepší orientaci.",
     "marketDataSetupTitle": "Tržní ceny potřebují nastavení",
+    "marketDataSetupBodyNoKeysNoHoldings": "Nemáte vyplněné API klíče pro tržní data. Nastavte je teď, ať po přidání krypta nebo akcií uvidíte live ceny.",
     "marketDataSetupBodyNoKeys": "Některé ceny krypta/akcií nejsou dostupné. Doplňte API klíče v Nastavení pro live ceny.",
     "marketDataSetupBodyWithKeys": "Některé ceny krypta/akcií nejsou dostupné. Otevřete Nastavení a klíče otestujte nebo upravte.",
     "openMarketSettings": "Otevřít market nastavení",
