@@ -782,7 +782,7 @@ export default function Dashboard() {
           </Link>
         </div>
       )}
-      {marketDataNeedsSetup && (
+      {!showOnboardingChoice && marketDataNeedsSetup && (
         <div
           className="card"
           style={{
